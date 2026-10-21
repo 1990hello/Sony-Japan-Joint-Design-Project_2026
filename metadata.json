@@ -1,0 +1,11 @@
+{
+  "name": "Evening Sanctuary - Bedroom Transition Experience",
+  "description": "An interactive 2040 smart-home bedroom transition prototype guiding remote workers from workday acknowledgement to emotional closure through holographic orb gestures.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

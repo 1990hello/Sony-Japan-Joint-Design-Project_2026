@@ -1,0 +1,592 @@
+# Google AI Studio Prompt — Bedroom Transition Experience (Stages 1–3)
+
+## Project Overview
+
+Create a complete, interactive, browser-based prototype of a futuristic smart-home experience set in 2040. The experience guides a remote worker through three emotional transition stages as she finishes her workday:
+
+1. **Acknowledgement** — Recognizing the work completed throughout the day.
+2. **Encouragement** — Receiving personalized emotional reassurance.
+3. **Closure** — Symbolically releasing lingering work-related thoughts and transitioning out of work mode.
+
+The prototype must use computer vision and hand gestures to let the user interact naturally with virtual elements in front of them.
+
+This is an immersive experiential prototype, not a conventional game, productivity dashboard, or chatbot. Prioritize atmospheric visuals, natural interactions, smooth animations, and emotional storytelling.
+
+The attached reference image illustrates the desired appearance of the holographic orb and its visual transformation. Use it as visual inspiration rather than reproducing its storyboard layout. The final experience should feel like a continuous, immersive environment.
+
+## 1. Core Technology Requirements
+
+Build a complete, self-contained browser application using HTML5, CSS, and JavaScript.
+
+Use the following technologies where appropriate:
+
+- HTML5 Canvas 2D API for rendering and animation.
+- WebGL or Three.js, loaded through a CDN, if necessary to achieve convincing 3D particle effects, volumetric-looking visuals, and a glass-like holographic sphere.
+- `navigator.mediaDevices.getUserMedia()` for webcam access.
+- MediaPipe Hands or a suitable MediaPipe hand-landmarker solution for real-time hand tracking.
+- `requestAnimationFrame()` for continuous rendering and animation.
+- Web Audio API for synthesized ambient sound, gentle chimes, and spatially appropriate interaction feedback.
+
+Keep the implementation compatible with Google AI Studio's code preview environment and modern desktop browsers.
+
+Provide all application code in the files supported by the environment. If a single-file implementation is practical, place the application in `index.html` with embedded CSS and JavaScript. Otherwise, use a minimal, clearly organized file structure.
+
+Do not require a backend, account registration, API key, or external AI service for the core interaction to work.
+
+Load computer-vision libraries from reliable CDNs where appropriate. Handle camera permission denial, unavailable cameras, initialization failures, and tracking errors gracefully.
+
+The application must remain usable without a webcam through mouse and touch controls.
+
+## 2. Visual Direction and Atmosphere
+
+### Overall aesthetic
+
+Create a sophisticated, futuristic yet calming bedroom workstation.
+
+The environment should evoke a premium 2040 smart home rather than a science-fiction control room.
+
+Visual characteristics:
+
+- Warm, subdued ambient lighting.
+- A dark, softly blurred background with a desk and subtle bedroom details.
+- A floating, transparent glass-like orb with luminous internal filaments.
+- Fine particles of light moving organically through the sphere.
+- Delicate gold and warm-white light trails.
+- Subtle reflections, bloom-like glow, transparency, and depth.
+- Soft shadows and smooth transitions between visual states.
+- Minimal UI, with no unnecessary panels, buttons, menus, or score displays.
+
+Use a restrained palette of warm white, champagne gold, pale amber, translucent blue, and muted charcoal.
+
+The orb should be the main visual focus, occupying a substantial portion of the viewport without obscuring the user's hands.
+
+The experience should feel quiet and contemplative. Avoid excessive particle explosions, aggressive flashing, oversaturated neon colors, or distracting visual clutter.
+
+### Rendering approach
+
+Use a layered rendering system to create the illusion of spatial depth.
+
+Represent the scene using:
+
+1. A background layer containing the bedroom and desk.
+2. A work-interface layer containing floating work tabs.
+3. An orb layer containing the glass sphere, filaments, and particles.
+4. A thread layer containing the black and golden threads.
+5. A hand-tracking layer for visual feedback and gesture recognition.
+6. A subtle instruction layer that appears only when needed.
+
+The visual composition must adapt to different desktop viewport sizes.
+
+For the initial prototype, simulate the smart-glasses experience on a desktop monitor using a first-person, front-facing perspective. The camera feed is used for tracking, not as the main visual background.
+
+Do not render a permanent webcam preview unless it is needed for debugging. If a preview is provided, make it small, optional, and easy to hide.
+
+## 3. Experience Flow and State Machine
+
+Implement the experience as a deterministic sequence of states.
+
+The user must be able to progress through the experience using the intended gestures. Animations must finish or reach appropriate transition thresholds before the next state begins.
+
+Use the following states:
+
+`INITIAL_WORK_TABS → ORB_FORMATION → TAB_TRANSFER → TAB_DISSOLUTION → BLACK_THREADS → GOLDEN_THREADS → ORB_RELEASED → ORB_GRABBED → ORB_DOCKING → IDLE`
+
+Each state should have a clearly defined visual appearance, transition trigger, and animation.
+
+Do not allow a gesture intended for a later stage to accidentally skip earlier stages.
+
+### Stage 1 — Acknowledgement
+
+#### State 1: Initial Work Tabs
+
+When the experience starts, show a collection of translucent virtual work tabs floating in front of the user, slightly above and beyond the desk.
+
+These tabs represent a typical remote-working environment. Include a mixture of:
+
+- A document or report.
+- A research page.
+- A design sketch or image.
+- A spreadsheet.
+- A task list.
+- A few smaller browser windows.
+
+The tabs should be arranged loosely in three-dimensional space, with different sizes, depths, and slight angular variations.
+
+Their contents should be abstract and fictional. Do not use actual personal data.
+
+Use subtle translucent surfaces, fine borders, small text-like details, and restrained blue-white highlights.
+
+Animate the tabs gently so they feel suspended in space, but keep them stable enough to remain readable as interface objects.
+
+The initial scene should communicate that the user has just finished working but is still surrounded by work-related information.
+
+Do not automatically start the transition immediately. Wait for the user's clap gesture.
+
+## State 2 — Clap Detection and Orb Formation
+
+**Primary trigger: Hands gently coming together, detected through computer vision.**
+
+The experience must rely primarily on visual hand tracking to detect the user's clap-like gesture. Do not require an audible clap or a microphone.
+
+The expected gesture is that the user gently brings both hands together in front of her body, without necessarily producing any sound.
+
+Use MediaPipe hand landmarks to track both hands and estimate the distance between their palms.
+
+Recognize the gesture when:
+
+- Both hands are visible and tracked reliably.
+- The distance between the palms decreases rapidly relative to their previous positions.
+- The palms approach a small separation threshold, indicating that the hands have come together.
+- The hands remain close for a brief interval to reduce false triggers.
+
+Use a combination of palm distance, relative hand velocity, and temporal confirmation rather than relying on a single fixed distance threshold. Calibrate the thresholds for the normalized webcam coordinate system and smooth landmark positions to reduce jitter.
+
+A brief hold with both hands together should also be accepted if the movement is slow, so that users who bring their hands together gently can still trigger the experience.
+
+**Audio is optional and supplementary only.** If microphone access is available, an audible clap may provide additional evidence that a clap occurred, but it must never be required. A silent hand-closing gesture must work without microphone permission.
+
+Implement a short cooldown and a one-time trigger lock so the gesture activates the transition only once.
+
+When the gesture is recognized:
+
+1. The floating work tabs pause briefly.
+2. A subtle pulse of light acknowledges the gesture.
+3. Small luminous particles gather above the desk.
+4. The particles spiral inward to form the transparent holographic orb.
+5. The orb stabilizes, ready to receive the work tabs.
+
+If the webcam cannot track both hands, provide an alternative mouse or touch interaction rather than leaving the experience inaccessible.
+
+#### State 3: Work Tabs Flow into the Orb
+
+After the orb has formed, the floating work tabs should begin moving towards it.
+
+Animate each tab individually:
+
+1. The tab detaches from its original position.
+2. It gently rotates towards the orb.
+3. It follows a curved trajectory through space.
+4. It shrinks as it approaches the sphere.
+5. It crosses the surface of the orb and becomes part of its internal visual structure.
+
+The tabs must flow into the orb sequentially with slight overlaps, rather than all disappearing at once.
+
+As each tab enters, briefly introduce a corresponding luminous pattern or particle response inside the sphere.
+
+The orb gradually becomes brighter and more intricate as it absorbs the work elements.
+
+Once all tabs have entered, remove the external tabs completely.
+
+The result should be a sphere filled with flowing light trails, small floating interface fragments, and warm luminous particles.
+
+This visual transition represents the user's workday being gathered into one place for acknowledgement.
+
+#### State 4: Tabs Dissolve Inside the Orb
+
+After the tabs have entered the sphere, pause briefly before beginning the dissolution.
+
+Inside the orb:
+
+- Interface fragments slowly lose their rectangular shape.
+- Their edges soften and break into tiny particles.
+- The particles drift away from their original positions.
+- The fragments dissolve into delicate streams of warm light.
+- The overall visual complexity gradually decreases.
+
+The orb should transition from a busy, information-filled sphere into a calmer, more coherent form.
+
+Avoid a sudden explosion or disappearance. The dissolution should be gradual, organic, and visually satisfying.
+
+At the end of the transition, the orb should remain intact, transparent, softly illuminated, and filled with a smaller number of gently moving particles and light trails.
+
+### Stage 2 — Encouragement
+
+### State 5: Golden Threads Form Words of Encouragement
+
+After the work tabs have dissolved inside the orb, allow a brief moment of stillness.
+
+The orb is now relatively calm, containing delicate internal light trails and a few softly glowing particles. Thin black threads may already be visible, connecting the orb to the desk and representing lingering responsibilities and work-related thoughts.
+
+Before the golden threads begin dissolving the black threads, the orb gathers warm golden light within its core.
+
+The golden light gradually extends outward, forming delicate, luminous threads. These threads move organically through the space around the orb and begin weaving together into **clearly readable words of personalized encouragement**.
+
+The words should appear to be physically formed from the golden threads rather than displayed as conventional digital text floating on a screen.
+
+For example, the message might read:
+
+"You have done enough for today."
+
+Other suitable messages include:
+
+- "Every small step counts."
+- "Your effort matters, even when progress feels small."
+- "You can rest now."
+- "You do not have to finish everything today."
+
+Use a small collection of predefined messages for the prototype. Select one message per experience, and ensure that the words remain coherent, supportive, and easy to read.
+
+The visual formation should unfold progressively:
+
+1. Warm particles gather inside the orb.
+2. Golden threads emerge from the surface.
+3. The threads trace the letters of the encouragement message.
+4. The words gradually become readable as each letter is completed.
+5. The completed message remains visible briefly, surrounded by a gentle golden glow.
+
+The lettering should be elegant and organic, as if written by flowing strands of light. Prioritize legibility over elaborate visual complexity. If real-time procedural text drawing is too difficult, use animated SVG paths or Canvas-rendered letter outlines as guides for the golden threads.
+
+### Voice of Encouragement
+
+As the golden threads form the words, a gentle, reassuring voice speaks the same message aloud.
+
+Use the browser's speech synthesis capability where available, or another suitable text-to-speech implementation that does not require a backend or API key.
+
+The spoken message must match the displayed words exactly.
+
+The delivery should be warm, calm, and natural, with a gentle pace and short pauses where appropriate. Avoid an overly cheerful, robotic, authoritative, or instructional tone.
+
+Coordinate the timing of the voice and visual animation:
+
+- Begin speaking as the first part of the message becomes readable.
+- Allow the golden threads to continue forming the remaining words as the voice progresses.
+- Keep the completed message visible long enough for the user to absorb it.
+- Do not begin dissolving the black threads before the message has been spoken and the words have had a brief moment to settle.
+
+Do not autoplay the voice before the user has initiated the experience. Since the experience is already user-initiated, request or initialize audio playback when permitted by browser policies.
+
+If speech synthesis is unavailable, retain the complete visual message and continue the experience normally.
+
+### State 6: Golden Threads Dissolve the Black Threads
+
+After the encouragement message has been fully spoken and visually displayed, transition from reassurance into release.
+
+The golden threads that formed the words begin to loosen and flow away from the lettering. The message gradually breaks apart into luminous strands, which travel towards the black threads tethering the orb to the workstation.
+
+The golden threads now interact directly with the black threads.
+
+Animate the interaction as follows:
+
+1. The golden lettering loosens into individual luminous strands.
+2. The strands extend towards the black threads.
+3. The golden threads gently wrap around or cross the black threads.
+4. At each contact point, the black threads begin breaking apart into tiny dark particles.
+5. The particles gradually fade into the surrounding environment.
+6. The golden strands continue along the black threads until every connection to the desk has dissolved.
+
+The transition should feel gentle, deliberate, and emotionally meaningful. The golden threads symbolize the encouragement the user has received, while their dissolution of the black threads represents the gradual release of lingering work-related tension.
+
+As each black thread disappears, allow the orb to float more freely.
+
+Once the final black thread has dissolved, the remaining golden strands return towards the orb and settle into its internal light pattern.
+
+The orb should now appear untethered, calm, and ready for the user to reach out and take hold of it.
+
+Do not allow the user to grab the orb until the complete encouragement and thread-dissolution sequence has finished.
+
+At this point, the experience has reached the end of its emotional transition sequence, preparing the user for the physical interaction in Stage 3.
+
+### Stage 3 — Closure
+
+#### State 7: User Reaches Out and Grabs the Orb
+
+Once all black threads have dissolved, wait for the user to reach towards the virtual orb.
+
+Use hand tracking to recognize a natural grabbing gesture.
+
+Suggested detection logic:
+
+- Track the palm center and fingertips.
+- Recognize a grab when the thumb and index finger move towards each other, with supporting evidence from the other fingers curling.
+- Use the index fingertip or a calibrated pinch point as the interaction point.
+- Detect whether the interaction point is close enough to the orb's projected screen-space position.
+- Require a short stable hold before registering the grab.
+
+If reliable full-hand gesture classification is unavailable, use a pinch gesture between the thumb and index finger as the primary grab action.
+
+When the user successfully grabs the orb:
+
+1. Display a subtle highlight at the point of contact.
+2. Make the orb respond with a gentle pulse.
+3. Attach the orb to the user's hand position.
+4. Maintain a stable relative offset between the hand and the orb.
+5. Smooth the orb's movement to reduce jitter.
+
+The orb should follow the user's hand naturally while remaining visually stable.
+
+Use interpolation or a suitable smoothing algorithm to prevent sudden jumps when tracking coordinates change.
+
+The grab must feel direct and responsive, with minimal delay.
+
+Do not allow the orb to be grabbed before the black threads have fully dissolved.
+
+#### State 8: Moving the Orb to the Docking Station
+
+Create a dedicated docking station on the desk, positioned clearly within the scene.
+
+Use the attached reference image for inspiration: a minimalist decorative base with a circular frame and a small bonsai-like structure. The design should feel like a premium smart-home object rather than a bulky piece of machinery.
+
+The dock is the designated resting place for the holographic orb.
+
+When the user is holding the orb, provide a subtle visual indication of the docking target. For example, the circular frame may glow slightly warmer when the orb approaches.
+
+The user moves the orb using her hand, bringing it towards the docking station.
+
+When the orb reaches the docking region:
+
+1. Detect proximity between the orb and the docking target.
+2. Gently guide the orb into alignment with the dock.
+3. If necessary, use a subtle snapping effect to help it settle into the correct position.
+4. Transition the orb from a freely floating holographic object into a docked, stable object.
+5. Release the hand attachment.
+6. Animate the orb settling into its resting position.
+
+Do not teleport the orb directly to the dock. Its movement must be controlled by the user's hand until the docking region is reached.
+
+If the user releases the orb before reaching the dock, let it remain floating briefly or return gently to its previous position. Do not restart the experience.
+
+#### State 9: Orb Docked and Idle
+
+Once the orb has settled into the docking station, transition into a calm idle animation.
+
+The orb should remain softly illuminated, with:
+
+- A few slow-moving internal particles.
+- Delicate golden filaments.
+- Gentle breathing-like changes in brightness.
+- A very subtle mist or glow near the base.
+- Minimal movement to communicate a peaceful resting state.
+
+The docking station may emit a restrained warm glow.
+
+The orb should appear calm, stable, and integrated into the bedroom environment.
+
+For this prototype, the experience may end in this idle state. The personalized quote, edible-film printing, and the living-room Perspective stage are outside the current scope.
+
+## 4. Computer Vision and Gesture Interaction
+
+Implement a reliable hand-tracking interaction system.
+
+### Hand tracking
+
+Use MediaPipe to detect and track the user's hands through the webcam.
+
+Track at least:
+
+- Wrist.
+- Palm center, estimated from hand landmarks.
+- Thumb tip.
+- Index fingertip.
+- Other fingertips needed for grab detection.
+
+Mirror the horizontal tracking coordinates so that movement to the right in the webcam interaction corresponds intuitively to movement to the right on the screen.
+
+Normalize landmark coordinates to the application viewport.
+
+Use temporal smoothing to reduce jitter while preserving responsive movement.
+
+Account for temporary loss of tracking. If the hand disappears briefly, avoid making the orb jump to an arbitrary position.
+
+### Gesture recognition
+
+Implement the following gestures:
+
+**Gesture A — Single Clap**
+
+- Requires two visible hands.
+- Detects rapid hand convergence.
+- Triggers the orb formation sequence.
+- Can optionally use microphone-based clap detection as a secondary signal.
+- Must not retrigger once the experience has progressed beyond the initial state.
+
+**Gesture B — Grab or Pinch**
+
+- Requires the orb to be in the released, untethered state.
+- Detects a pinch or stable grabbing gesture.
+- Requires the hand interaction point to overlap the orb's interaction area.
+- Attaches the orb to the hand.
+
+**Gesture C — Move While Grabbing**
+
+- Continuously maps the tracked hand's position to the orb's position.
+- Maintains a stable relative offset.
+- Uses smoothing to reduce visual jitter.
+- Keeps the orb within reasonable viewport boundaries.
+
+**Gesture D — Release**
+
+- Recognizes when the user releases the pinch or grab.
+- If the orb is inside the docking region, complete docking.
+- Otherwise, let the orb float gently and allow the user to grab it again.
+
+Use a small gesture cooldown and explicit interaction states to avoid accidental repeated actions.
+
+### Mouse and touch fallback
+
+If webcam access is unavailable or hand tracking fails, provide a complete fallback:
+
+- Clicking or tapping a visible interaction control may trigger the initial clap transition.
+- Clicking and dragging the orb should allow it to be moved.
+- Releasing the orb inside the docking region should complete docking.
+
+Provide a discreet fallback instruction, but do not clutter the main visual experience with conventional UI controls.
+
+## 5. Animation and Rendering System
+
+Create a reusable animation system for the different visual elements.
+
+Include:
+
+- Particle emitters.
+- Orb formation and dissolution.
+- Curved trajectories for incoming tabs.
+- Internal particle motion.
+- Organic thread curves.
+- Thread interaction and dissolution.
+- Hand-following movement.
+- Docking alignment and settling.
+- Ambient idle animation.
+
+Use easing functions to make the transitions feel natural.
+
+Suitable animation characteristics include:
+
+- Slow ease-in and ease-out for atmospheric transitions.
+- Slight acceleration for tabs entering the orb.
+- Smooth, continuous curves for threads.
+- Responsive but damped movement for hand interaction.
+- Gentle settling when the orb reaches the dock.
+
+Avoid abrupt state changes, except for immediate feedback that is necessary to communicate a successful gesture.
+
+Ensure that the animation system remains performant. Limit particle counts where necessary and adapt rendering quality to the available hardware.
+
+## 6. Audio Design
+
+Use the Web Audio API to create subtle, optional audio feedback without requiring external audio assets.
+
+The audio should support the emotional experience without becoming distracting.
+
+Suggested sounds:
+
+- **Initial state:** Very quiet room ambience, or silence.
+- **Clap recognized:** A soft, brief tonal response.
+- **Orb formation:** A delicate, airy synthesized tone.
+- **Tabs entering the orb:** Sparse, soft high-frequency chimes.
+- **Tab dissolution:** A faint shimmering texture.
+- **Black threads appearing:** Minimal low-level tonal tension, if appropriate.
+- **Golden threads dissolving black threads:** Gentle, warm, harmonically pleasant tones.
+- **Orb grabbed:** A subtle confirmation chime.
+- **Orb docked:** A soft, resolving tone.
+- **Idle:** Silence or very restrained ambience.
+
+Use synthesized oscillators, gain envelopes, and gentle filtering rather than loud or repetitive sound effects.
+
+Provide a way to mute the audio.
+
+Audio must never be required for the core interaction to function.
+
+Do not autoplay audio before user interaction if browser policies prevent it.
+
+## 7. Minimal User Interface
+
+The interface should preserve the immersive atmosphere.
+
+Include only:
+
+- A simple Start Experience control if required by browser permission or audio initialization.
+- A brief instruction for the initial clap.
+- A brief gesture hint when the orb becomes available to grab.
+- A subtle docking hint when the user is holding the orb.
+- An optional camera status indicator.
+- A discreet audio mute control.
+- A fallback interaction method when webcam access is unavailable.
+
+Hide instructions when they are no longer relevant.
+
+Do not display scores, progress bars, conventional navigation menus, chat windows, or large instructional panels.
+
+The experience should communicate its stages primarily through animation and spatial feedback.
+
+## 8. Technical Architecture
+
+Organize the code around a clear state machine and reusable rendering components.
+
+Suggested modules or classes:
+
+- `ExperienceController` — Manages state transitions and prevents invalid progression.
+- `HandTracker` — Initializes MediaPipe and provides smoothed landmark coordinates.
+- `GestureRecognizer` — Detects clap, pinch/grab, movement, and release.
+- `OrbRenderer` — Renders the holographic orb and its internal animation.
+- `TabManager` — Creates, animates, and dissolves the floating work tabs.
+- `ThreadSystem` — Manages black threads, golden threads, and their interaction.
+- `ParticleSystem` — Manages particles, light trails, and dissolution effects.
+- `DockingStation` — Defines the docking target and settling animation.
+- `AudioController` — Manages optional synthesized audio.
+- `FallbackController` — Supports mouse and touch interaction.
+
+The names are suggestions; equivalent architecture is acceptable.
+
+Separate state-transition logic from rendering logic so that gestures cannot accidentally cause multiple transitions.
+
+Use elapsed time rather than frame counts for animations so that the experience behaves consistently at different frame rates.
+
+Handle resizing, missing cameras, lost tracking, and failed asset or library initialization gracefully.
+
+If a 3D rendering library is used, ensure the application initializes correctly in the browser preview and provides a fallback if WebGL is unavailable.
+
+## 9. Prototype Quality and Acceptance Criteria
+
+The prototype is successful when all the following conditions are met:
+
+1. The application loads into a believable, atmospheric bedroom workstation.
+2. Floating work tabs are visible before the experience begins.
+3. A single clap initiates the orb formation sequence.
+4. Work tabs move into the orb individually and dissolve inside it.
+5. Black threads appear only after the tab dissolution sequence.
+6. Golden threads gradually dissolve all black threads.
+7. The orb becomes available to grab only after the threads have disappeared.
+8. The user can grab the orb using hand tracking and move it around the screen.
+9. The orb follows the hand smoothly without excessive jitter.
+10. The user can move the orb to the docking station.
+11. The orb settles naturally into the dock and transitions into a calm idle animation.
+12. Mouse and touch controls provide a usable fallback.
+13. Gestures cannot accidentally skip states or trigger the same transition repeatedly.
+14. The experience remains visually coherent if tracking is temporarily lost.
+15. The prototype runs without a backend and does not require personal user data.
+
+## 10. Implementation Priorities
+
+Prioritize the following in order:
+
+**Priority 1 — Functional interaction**
+
+Ensure the clap trigger, tab transfer, thread dissolution, hand grab, orb movement, and docking sequence work correctly.
+
+**Priority 2 — Visual quality**
+
+Create a convincing glass-like orb, smooth particle animation, elegant threads, and an atmospheric environment inspired by the attached reference image.
+
+**Priority 3 — Gesture reliability**
+
+Tune the hand tracking, smoothing, grab thresholds, cooldowns, and fallback controls.
+
+**Priority 4 — Emotional pacing**
+
+Give each stage enough time to be observed. Avoid rushing the transitions or overwhelming the user with effects.
+
+**Priority 5 — Polish**
+
+Refine lighting, particle density, audio, typography, and responsive layout.
+
+Do not sacrifice functional interaction for visual complexity. A coherent, fully working prototype with polished key moments is preferable to an elaborate scene with unreliable gestures.
+
+## Final Instruction
+
+Generate the working prototype, not merely a design description or pseudocode.
+
+Implement the complete sequence from the initial floating work tabs to the docked orb. Ensure all essential interactions are functional, and include clear instructions for running and testing the application.
+
+If a particular visual effect cannot be implemented reliably in the chosen rendering environment, approximate it with a convincing lightweight effect rather than leaving it unimplemented.
+
+Use the attached orb reference image only as visual guidance for the orb's appearance, luminous threads, and docking station. Do not recreate the eight-panel storyboard or place the reference image itself in the final interface.
