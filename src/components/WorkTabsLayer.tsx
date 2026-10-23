@@ -23,7 +23,7 @@ const INITIAL_TABS: WorkTabItem[] = [
     title: 'Architecture Blueprint: Spatial Neural Mesh v9',
     category: 'System Design Spec',
     iconName: 'Layers',
-    initialPos: { x: -260, y: -140, z: -40, rotX: 6, rotY: 14, rotZ: -2 },
+    initialPos: { x: -330, y: -160, z: -30, rotX: 6, rotY: 14, rotZ: -3 },
     snippet: 'Verified 14 sub-clusters. Latency bound at 1.2ms across local optic bus.',
     status: 'active',
   },
@@ -32,7 +32,7 @@ const INITIAL_TABS: WorkTabItem[] = [
     title: 'Circadian Cognitive Telemetry (18:00)',
     category: 'Bio-Telemetry Monitor',
     iconName: 'Activity',
-    initialPos: { x: 260, y: -160, z: -20, rotX: 8, rotY: -16, rotZ: 3 },
+    initialPos: { x: 320, y: -180, z: -20, rotX: 8, rotY: -16, rotZ: 3 },
     snippet: 'Cognitive load peak at 15:40. Cortisol baseline stabilizing.',
     status: 'active',
   },
@@ -41,7 +41,7 @@ const INITIAL_TABS: WorkTabItem[] = [
     title: 'Q4 Synthesis Deliverables & Sprint Closure',
     category: 'Task Execution Matrix',
     iconName: 'CheckSquare',
-    initialPos: { x: -340, y: 80, z: 20, rotX: -4, rotY: 18, rotZ: -3 },
+    initialPos: { x: -390, y: 70, z: 20, rotX: -4, rotY: 18, rotZ: -2 },
     snippet: '12 / 12 milestones deployed to edge nodes. 0 blocking anomalies.',
     status: 'active',
   },
@@ -50,7 +50,7 @@ const INITIAL_TABS: WorkTabItem[] = [
     title: 'Photonic Waveguide Dispersion Model',
     category: 'Physics Simulation Node',
     iconName: 'Cpu',
-    initialPos: { x: 330, y: 60, z: 10, rotX: -6, rotY: -18, rotZ: 2 },
+    initialPos: { x: 370, y: 50, z: 10, rotX: -6, rotY: -18, rotZ: 2 },
     snippet: 'Refractive matrix convergence reached with epsilon < 10e-6.',
     status: 'active',
   },
@@ -59,7 +59,7 @@ const INITIAL_TABS: WorkTabItem[] = [
     title: 'Cross-Disciplinary Research Dossier: Phase 3',
     category: 'Knowledge Graph',
     iconName: 'FileText',
-    initialPos: { x: 0, y: -220, z: -60, rotX: 12, rotY: 0, rotZ: 0 },
+    initialPos: { x: -20, y: -260, z: -60, rotX: 12, rotY: 0, rotZ: 0 },
     snippet: '37 cross-referenced citations validated. Synaptic summary cached.',
     status: 'active',
   },
@@ -68,7 +68,7 @@ const INITIAL_TABS: WorkTabItem[] = [
     title: 'Resource Allocation & Energy Grid Balance',
     category: 'Telemetry Ledger',
     iconName: 'BarChart3',
-    initialPos: { x: -80, y: 170, z: 40, rotX: -10, rotY: 4, rotZ: 1 },
+    initialPos: { x: -40, y: 190, z: 40, rotX: -10, rotY: 4, rotZ: 1 },
     snippet: 'Daily compute expenditure: 4.8 kWh. Net positive solar recoup.',
     status: 'active',
   },
@@ -93,12 +93,12 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
     onTabProgressRef.current = onTabProgress;
   }, [onTabProgress]);
 
-  // Priority 1: Guaranteed Staggered Absorption with Bounded Safety Fallback
+  // Stage 3 Absorb Sequence: Tabs move inward and dissolve into the central orb
   useEffect(() => {
     if (state === 'TAB_TRANSFER') {
-      console.log('[WorkTabsLayer] Starting tab absorption sequence...');
+      console.log('[WorkTabsLayer] Starting tab absorption sequence into enclosing orb...');
 
-      // Reset tabs to active state
+      // Ensure tabs start active at their scattered positions
       setTabs(INITIAL_TABS.map((t) => ({ ...t, status: 'active' })));
       onTabProgressRef.current?.(INITIAL_TABS.length, INITIAL_TABS.length, false);
 
@@ -119,7 +119,7 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
           const tabId = INITIAL_TABS[currentIdx].id;
           const idxToAbsorb = currentIdx;
 
-          // Animate tab flowing into the orb
+          // Animate tab flowing inward into the orb
           setTabs((prev) =>
             prev.map((t) => (t.id === tabId ? { ...t, status: 'transferring' } : t))
           );
@@ -140,7 +140,7 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
           clearInterval(interval);
           setTimeout(() => finishAbsorption('All tabs successfully animated into orb'), 800);
         }
-      }, 420); // 420ms staggered flow
+      }, 400); // 400ms staggered inward flow
 
       // Bounded fallback timeout: guarantees progression after 4.2 seconds under any condition
       const safetyTimeout = setTimeout(() => {
@@ -151,11 +151,12 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
         clearInterval(interval);
         clearTimeout(safetyTimeout);
       };
-    } else if (state === 'INITIAL_WORK_TABS') {
+    } else if (state === 'INITIAL_WORK_TABS' || state === 'ORB_FORMATION') {
+      // In both INITIAL_WORK_TABS and ORB_FORMATION, tabs remain completely scattered
       setTabs(INITIAL_TABS.map((t) => ({ ...t, status: 'active' })));
       onTabProgressRef.current?.(INITIAL_TABS.length, INITIAL_TABS.length, false);
     }
-  }, [state]); // Stable dependency: ONLY re-runs on state changes!
+  }, [state]);
 
   // If experience is beyond tab transfer & dissolution, hide external tabs entirely
   if (
@@ -183,6 +184,8 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
     }
   };
 
+  const isEnclosing = state === 'ORB_FORMATION';
+
   return (
     <div
       className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center select-none z-15"
@@ -204,18 +207,27 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
             }`}
             style={{
               transform: isTransferring
-                ? `translate3d(0px, 0px, -220px) rotateX(${tab.initialPos.rotX * 2}deg) rotateY(${tab.initialPos.rotY * 2}deg) scale(0.08)`
+                ? `translate3d(0px, 0px, -220px) rotateX(${tab.initialPos.rotX * 2}deg) rotateY(${tab.initialPos.rotY * 2}deg) scale(0.06)`
                 : `translate3d(${tab.initialPos.x}px, ${tab.initialPos.y}px, ${tab.initialPos.z}px) rotateX(${tab.initialPos.rotX}deg) rotateY(${tab.initialPos.rotY}deg) rotateZ(${tab.initialPos.rotZ}deg)`,
               width: '260px',
-              animation: isTransferring
-                ? 'none'
-                : `floatTab ${6 + idx * 0.7}s ease-in-out ${idx * 0.4}s infinite alternate`,
             }}
           >
-            {/* Glassmorphic Tab Container */}
-            <div className="glass-tab rounded-xl p-3.5 border border-cyan-400/25 bg-slate-900/75 shadow-2xl relative overflow-hidden group">
+            {/* Glassmorphic Tab Container with Enclosing Aura */}
+            <div
+              className={`glass-tab rounded-xl p-3.5 shadow-2xl relative overflow-hidden transition-all duration-700 ${
+                isEnclosing
+                  ? 'border border-amber-300/45 bg-slate-900/85 shadow-[0_0_30px_rgba(251,191,36,0.25)]'
+                  : 'border border-cyan-400/25 bg-slate-900/75'
+              }`}
+            >
               {/* Top ambient glow bar */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+              <div
+                className={`absolute top-0 left-0 right-0 h-[2px] transition-all duration-700 ${
+                  isEnclosing
+                    ? 'bg-gradient-to-r from-transparent via-amber-300/80 to-transparent'
+                    : 'bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent'
+                }`}
+              />
 
               {/* Tab Header */}
               <div className="flex items-center justify-between mb-2">
@@ -223,12 +235,20 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
                   <div className="p-1 rounded bg-slate-800/80 border border-white/10">
                     {getIcon(tab.iconName)}
                   </div>
-                  <span className="text-[10px] tracking-wider text-cyan-200/70 uppercase font-sans font-medium">
+                  <span
+                    className={`text-[10px] tracking-wider uppercase font-sans font-medium transition-colors duration-700 ${
+                      isEnclosing ? 'text-amber-200/80' : 'text-cyan-200/70'
+                    }`}
+                  >
                     {tab.category}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full transition-colors duration-700 ${
+                      isEnclosing ? 'bg-amber-400' : 'bg-cyan-400'
+                    }`}
+                  />
                   <span className="text-[9px] text-slate-400 font-mono">2040.10</span>
                 </div>
               </div>
@@ -243,29 +263,19 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
                 {tab.snippet}
               </p>
 
-              {/* Futuristic Micro-details (abstract grid / graph lines) */}
+              {/* Futuristic Micro-details */}
               <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[9px] text-slate-400/60 font-mono">
                 <span className="flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                  Synced
+                  <span className={`w-1 h-1 rounded-full ${isEnclosing ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                  {isEnclosing ? 'ENCLOSED' : 'Synced'}
                 </span>
-                <span>STATE_CLOSED</span>
+                <span>{isEnclosing ? 'ENVELOPED_BY_ORB' : 'STATE_ACTIVE'}</span>
               </div>
             </div>
           </div>
         );
       })}
 
-      <style>{`
-        @keyframes floatTab {
-          0% {
-            transform: translate3d(var(--tx, 0), var(--ty, 0), var(--tz, 0)) translateY(0px) rotateZ(0deg);
-          }
-          100% {
-            transform: translate3d(var(--tx, 0), var(--ty, 0), var(--tz, 0)) translateY(-10px) rotateZ(1deg);
-          }
-        }
-      `}</style>
     </div>
   );
 };

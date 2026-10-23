@@ -119,6 +119,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   const filamentsRef = useRef<{ angleOffset: number; speed: number; radiusRatio: number; phase: number }[]>([]);
   const blackThreadsRef = useRef<Thread[]>([]);
   const formationProgressRef = useRef<number>(0);
+  const contractingProgressRef = useRef<number>(0);
   const stateRef = useRef<ExperienceState>(state);
   const onAbsorbProgressRef = useRef(onAbsorbProgress);
   onAbsorbProgressRef.current = onAbsorbProgress;
@@ -250,14 +251,15 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       formationProgressRef.current = 0;
       soundSynthesizer.playOrbFormation();
 
-      // Safe fallback timer: ensures formation always completes within 2.2s
+      // Safe fallback timer: ensures formation always completes within 2.5s
       const timer = setTimeout(() => {
         if (stateRef.current === 'ORB_FORMATION') {
-          onStateChange('TAB_TRANSFER', 'Orb formation completed (timer)');
+          onStateChange('TAB_TRANSFER', 'Orb formation around scattered tabs completed (timer)');
         }
-      }, 2200);
+      }, 2500);
       return () => clearTimeout(timer);
     } else if (state === 'TAB_TRANSFER') {
+      contractingProgressRef.current = 0;
       // Priority 1: Stage 3 Absorb Watchdog Fallback
       // Guarantees progression after 4.5s even if tab absorption triggers are delayed
       const timer = setTimeout(() => {
@@ -826,17 +828,14 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         });
       }
 
-      // --- RENDER ORB FORMATION SPIRALS ---
-      if (currentState === 'ORB_FORMATION') {
-        formationProgressRef.current = Math.min(1, formationProgressRef.current + 0.016);
-        renderFormationSpirals(ctx, currentOrbX, currentOrbY, formationProgressRef.current, t);
-        if (formationProgressRef.current >= 1) {
-          onStateChange('TAB_TRANSFER', 'Orb formed (animation complete)');
-        }
-      }
-
       // --- RENDER HOLOGRAPHIC ORB ---
-      if (currentState !== 'INITIAL_WORK_TABS') {
+      if (currentState === 'ORB_FORMATION') {
+        formationProgressRef.current = Math.min(1, formationProgressRef.current + 0.007);
+        renderEnclosingOrbFormation(ctx, currentOrbX, currentOrbY, formationProgressRef.current, t);
+        if (formationProgressRef.current >= 1) {
+          onStateChange('TAB_TRANSFER', 'Orb formed around scattered tabs (animation complete)');
+        }
+      } else {
         const isCloudMorph =
           currentState === 'ORB_RELEASED' ||
           currentState === 'ORB_HELD' ||
@@ -850,6 +849,12 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
           renderCloudOrb(ctx, currentOrbX, currentOrbY, currentRadius, t, currentState === 'IDLE');
         } else {
           renderGlassOrb(ctx, currentOrbX, currentOrbY, currentRadius, t, currentState);
+        }
+
+        // In TAB_TRANSFER: render contracting outer energy envelope as tabs move inward
+        if (currentState === 'TAB_TRANSFER') {
+          contractingProgressRef.current = Math.min(1, contractingProgressRef.current + 0.0055);
+          renderContractingEnclosure(ctx, currentOrbX, currentOrbY, contractingProgressRef.current, currentRadius, t);
         }
 
         // Horizontal Return Swipe Shimmer Glow
@@ -1070,7 +1075,8 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     ctx.restore();
   };
 
-  const renderFormationSpirals = (
+  // Render expanding holographic orb that forms around the scattered work tabs
+  const renderEnclosingOrbFormation = (
     ctx: CanvasRenderingContext2D,
     cx: number,
     cy: number,
@@ -1078,21 +1084,155 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     time: number
   ) => {
     ctx.save();
-    const count = 70;
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 6 + time * 3;
-      const dist = (1 - progress) * (window.innerWidth * 0.35) * (1 - (i / count) * 0.3);
-      const px = cx + Math.cos(angle) * dist;
-      const py = cy + Math.sin(angle) * dist;
 
-      ctx.fillStyle = 'rgba(255, 235, 180, 0.85)';
-      ctx.shadowColor = 'rgba(246, 214, 159, 0.9)';
-      ctx.shadowBlur = 12;
+    // Smooth cubic expansion that slows as it reaches maximum enclosure around the tabs
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const enclosingRadius = 45 + ease * 450; // Expands from 45px to 495px
 
+    // 1. Broad Volumetric Ambient Aura
+    const auraGrad = ctx.createRadialGradient(cx, cy, enclosingRadius * 0.15, cx, cy, enclosingRadius * 1.35);
+    auraGrad.addColorStop(0, `rgba(255, 245, 220, ${0.16 + ease * 0.22})`);
+    auraGrad.addColorStop(0.45, `rgba(246, 200, 140, ${0.08 + ease * 0.14})`);
+    auraGrad.addColorStop(0.85, `rgba(100, 160, 255, ${0.04 + ease * 0.08})`);
+    auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, enclosingRadius * 1.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Translucent Enclosing Spherical Shell
+    const shellGrad = ctx.createRadialGradient(
+      cx - enclosingRadius * 0.2,
+      cy - enclosingRadius * 0.2,
+      0,
+      cx,
+      cy,
+      enclosingRadius
+    );
+    shellGrad.addColorStop(0, 'rgba(255, 250, 235, 0.09)');
+    shellGrad.addColorStop(0.65, 'rgba(246, 214, 159, 0.07)');
+    shellGrad.addColorStop(0.92, 'rgba(140, 190, 255, 0.14)');
+    shellGrad.addColorStop(1, 'rgba(255, 235, 180, 0.38)');
+
+    ctx.fillStyle = shellGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, enclosingRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Shimmering Enclosing Boundary Rim
+    ctx.strokeStyle = `rgba(255, 240, 200, ${0.35 + ease * 0.55})`;
+    ctx.lineWidth = 1.8 + ease * 1.4;
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 18 * ease;
+    ctx.stroke();
+
+    // 4. 3D Enclosing Orbital Rings (Latitude & Longitude cages enveloping the tabs)
+    const ringAngles = [0.2, -0.4, 0.8];
+    ringAngles.forEach((angle, idx) => {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(angle + time * (0.15 + idx * 0.06));
+      ctx.strokeStyle = `rgba(255, 225, 150, ${0.14 + ease * 0.26})`;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(px, py, 2.5 * progress + 1, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, enclosingRadius * 0.98, enclosingRadius * (0.32 + idx * 0.16), 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // 5. Nascent Radiant Spark at Center Core (cx, cy)
+    const coreR = 32 + Math.sin(time * 4) * 4;
+    const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+    coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    coreGrad.addColorStop(0.4, 'rgba(255, 240, 200, 0.85)');
+    coreGrad.addColorStop(0.8, 'rgba(246, 195, 120, 0.35)');
+    coreGrad.addColorStop(1, 'rgba(246, 195, 120, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 25;
+    ctx.beginPath();
+    ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 6. Filament Energy Tendrils stretching from core to enclosing perimeter
+    const tendrilCount = 12;
+    for (let i = 0; i < tendrilCount; i++) {
+      const a = (i / tendrilCount) * Math.PI * 2 + time * 0.5;
+      const targetR = enclosingRadius * (0.85 + Math.sin(time * 2 + i) * 0.1);
+      const endX = cx + Math.cos(a) * targetR;
+      const endY = cy + Math.sin(a) * targetR;
+      const midA = a + Math.sin(time * 3 + i) * 0.3;
+      const midR = targetR * 0.55;
+      const midX = cx + Math.cos(midA) * midR;
+      const midY = cy + Math.sin(midA) * midR;
+
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 235, 175, ${0.25 + ease * 0.35})`;
+      ctx.lineWidth = 1.0;
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.quadraticCurveTo(midX, midY, endX, endY);
+      ctx.stroke();
+
+      // Traveling stardust node along filament
+      const nodePos = (time * 0.8 + i * 0.15) % 1;
+      const nx = cx + (endX - cx) * nodePos;
+      const ny = cy + (endY - cy) * nodePos;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(nx, ny, 2.0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
+
+    ctx.restore();
+  };
+
+  // Render contracting energy boundary during tab transfer as tabs are drawn inward
+  const renderContractingEnclosure = (
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    progress: number,
+    targetRadius: number,
+    time: number
+  ) => {
+    ctx.save();
+    const ease = Math.sin(progress * Math.PI * 0.5);
+    const contractingR = 495 - ease * (495 - targetRadius);
+
+    if (contractingR > targetRadius * 1.1) {
+      // Outer translucent contracting bubble
+      ctx.strokeStyle = `rgba(255, 235, 180, ${(1 - progress) * 0.45})`;
+      ctx.lineWidth = 2.0;
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(cx, cy, contractingR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Contracting stardust gathering inward
+      const count = 18;
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + time * 2;
+        const dist = contractingR * (0.92 + Math.sin(time * 3 + i) * 0.08);
+        const px = cx + Math.cos(angle) * dist;
+        const py = cy + Math.sin(angle) * dist;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffdf9e';
+        ctx.shadowBlur = 8;
+        ctx.globalAlpha = (1 - progress) * 0.75;
+        ctx.beginPath();
+        ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     ctx.restore();
   };
 
@@ -1140,6 +1280,41 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         ctx.stroke();
       }
     });
+
+    // Inter-hand proximity feedback when two hands approach each other
+    if (detectedHands.length >= 2) {
+      const hA = detectedHands[0];
+      const hB = detectedHands[1];
+      const ax = hA.palmCenter.x * w;
+      const ay = hA.palmCenter.y * h;
+      const bx = hB.palmCenter.x * w;
+      const by = hB.palmCenter.y * h;
+      const dist = Math.hypot(hA.palmCenter.x - hB.palmCenter.x, hA.palmCenter.y - hB.palmCenter.y);
+
+      if (dist < 0.38) {
+        const closeness = Math.max(0, 1 - dist / 0.38);
+        ctx.save();
+        ctx.strokeStyle = `rgba(246, 214, 159, ${closeness * 0.8})`;
+        ctx.lineWidth = 1.5 + closeness * 2;
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 10 + closeness * 12;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+
+        // Central converging particle
+        const midX = (ax + bx) * 0.5;
+        const midY = (ay + by) * 0.5;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(midX, midY, 3 + closeness * 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
     ctx.restore();
   };
 

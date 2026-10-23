@@ -59,25 +59,25 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     switch (state) {
       case 'INITIAL_WORK_TABS':
         return {
-          stage: 'STAGE 1 · ACKNOWLEDGEMENT',
-          instruction: 'Gently bring your hands together in front of you to begin',
-          actionLabel: 'or Click to Clap',
+          stage: 'SCATTERED WORK TABS',
+          instruction: 'Gently bring both hands together in front of you to absorb tabs into the orb',
+          actionLabel: 'or Click to Bring Hands Together',
           onAction: onSimulateClap,
         };
       case 'ORB_FORMATION':
         return {
-          stage: 'STAGE 1 · ACKNOWLEDGEMENT',
-          instruction: 'Virtual holographic orb is forming above your desk...',
+          stage: 'STAGE 1 · ORB ENCLOSURE',
+          instruction: 'Holographic orb forming and expanding around the scattered tabs...',
         };
       case 'TAB_TRANSFER':
         return {
           stage: 'STAGE 3 · ABSORB',
-          instruction: 'Gathering workday projects and telemetry into the sphere...',
+          instruction: 'Enclosed tabs moving inward and absorbing into the orb core...',
         };
       case 'TAB_DISSOLUTION':
         return {
           stage: 'STAGE 3 · DISSOLUTION',
-          instruction: 'Work elements softening and dissolving into calm stardust...',
+          instruction: 'Work tabs fully dissolved into calm golden filaments...',
         };
       case 'BLACK_THREADS':
         return {

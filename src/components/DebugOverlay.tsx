@@ -66,19 +66,19 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
     switch (currentState) {
       case 'INITIAL_WORK_TABS':
         return {
-          condition: 'Two-hand clap gesture (palm distance < 0.16)',
+          condition: 'Both hands gently coming together in front of camera',
           met: hands.length >= 2,
-          next: 'ORB_FORMATION',
+          next: 'TAB_TRANSFER',
           auto: false,
-          waitingReason: 'Awaiting user bringing hands together in front of camera',
+          waitingReason: 'Tabs scattered indefinitely. Awaiting hands coming together.',
         };
       case 'ORB_FORMATION':
         return {
-          condition: 'Orb coalescence timer (2.2s auto)',
-          met: stateDurationSec >= 2.2,
+          condition: 'Orb expanding to enclose all scattered work tabs (2.5s)',
+          met: stateDurationSec >= 2.5,
           next: 'TAB_TRANSFER',
           auto: true,
-          waitingReason: `Assembling holographic sphere (${(2.2 - Math.min(2.2, stateDurationSec)).toFixed(1)}s remaining)`,
+          waitingReason: `Enclosing scattered tabs in holographic field (${(2.5 - Math.min(2.5, stateDurationSec)).toFixed(1)}s remaining)`,
         };
       case 'TAB_TRANSFER':
         return {

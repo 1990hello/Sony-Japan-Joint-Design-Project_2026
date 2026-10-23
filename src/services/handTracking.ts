@@ -7,6 +7,7 @@ declare global {
 }
 
 export interface HandTrackerCallbacks {
+  onHandsTogether?: () => void;
   onClap?: () => void;
   onGrabStart?: (x: number, y: number, handedness: 'Left' | 'Right') => void;
   onGrabMove?: (x: number, y: number, handedness: 'Left' | 'Right') => void;
@@ -39,7 +40,8 @@ export class HandTracker {
 
   // Smoothing filters (low pass)
   private smoothedHands: HandData[] = [];
-  private prevPalmDistance: number | null = null;
+  private palmDistanceHistory: { dist: number; time: number }[] = [];
+  private handsTogetherHoldFrames: number = 0;
   private lastClapTime: number = 0;
   private clapCooldown: number = 1800; // ms
 
@@ -303,8 +305,8 @@ export class HandTracker {
     this.smoothHands(rawHands);
     this.callbacks.onHandsUpdate?.(this.smoothedHands);
 
-    // 1. Clap detection for Stage 1 initial trigger
-    this.checkClap(this.smoothedHands);
+    // 1. Hands Together Detection for Stage 1 initial trigger
+    this.checkHandsTogether(this.smoothedHands);
 
     // 2. Pinch + Horizontal Slide to return orb home
     this.checkPinchSlideReturn(this.smoothedHands, now);
@@ -348,7 +350,16 @@ export class HandTracker {
     });
   }
 
-  private checkClap(hands: HandData[]) {
+  public lastMeasuredHandsDist: number | null = null;
+  private lastCloseHandsTime: number = 0;
+
+  /**
+   * Detects both hands coming together in front of the camera.
+   * Uses practical, adjustable distance thresholds between hands (palms, index, and thumb landmarks)
+   * with a brief confirmation threshold (3 consecutive frames ~100ms) to ensure responsive,
+   * reliable triggering without being overly strict or brittle.
+   */
+  private checkHandsTogether(hands: HandData[]) {
     const now = performance.now();
     if (now - this.lastClapTime < this.clapCooldown) return;
 
@@ -356,26 +367,80 @@ export class HandTracker {
       const handA = hands[0];
       const handB = hands[1];
 
-      const dx = handA.palmCenter.x - handB.palmCenter.x;
-      const dy = handA.palmCenter.y - handB.palmCenter.y;
-      const currentDist = Math.sqrt(dx * dx + dy * dy);
+      // Distance between palm centers
+      const palmDist = Math.hypot(
+        handA.palmCenter.x - handB.palmCenter.x,
+        handA.palmCenter.y - handB.palmCenter.y
+      );
 
-      const isVeryClose = currentDist < 0.16;
-      const isRapidConvergence =
-        this.prevPalmDistance !== null &&
-        this.prevPalmDistance - currentDist > 0.07 &&
-        currentDist < 0.24;
+      // Distance between index fingertips
+      const indexDist = Math.hypot(
+        handA.indexTip.x - handB.indexTip.x,
+        handA.indexTip.y - handB.indexTip.y
+      );
 
-      if (isVeryClose || isRapidConvergence) {
-        this.lastClapTime = now;
-        this.prevPalmDistance = null;
-        this.callbacks.onClap?.();
-        return;
+      // Distance between thumb fingertips
+      const thumbDist = Math.hypot(
+        handA.thumbTip.x - handB.thumbTip.x,
+        handA.thumbTip.y - handB.thumbTip.y
+      );
+
+      // Minimum distance between corresponding keypoints
+      const minPointDist = Math.min(palmDist, indexDist, thumbDist);
+
+      // Composite distance representing overall proximity between both hands
+      const currentDist = Math.min(palmDist, (palmDist + minPointDist) * 0.55);
+      this.lastMeasuredHandsDist = currentDist;
+
+      // Practical adjustable threshold: hands close together in front of camera
+      // Tolerates variations in hand orientation, palm tilt, or touching fingertips
+      const isHandsClose = currentDist <= 0.24 || minPointDist <= 0.18 || palmDist <= 0.25;
+
+      if (isHandsClose) {
+        this.lastCloseHandsTime = now;
+        this.handsTogetherHoldFrames++;
+
+        // Brief confirmation threshold (3 frames ~100ms) prevents single-frame blips
+        if (this.handsTogetherHoldFrames >= 3) {
+          this.lastClapTime = now;
+          this.handsTogetherHoldFrames = 0;
+          this.lastCloseHandsTime = 0;
+          console.log(
+            `%c[HandTracker] Hands together confirmed!%c palmDist=${palmDist.toFixed(3)}, minPointDist=${minPointDist.toFixed(3)}`,
+            'color: #10b981; font-weight: bold;',
+            'color: #e2e8f0;'
+          );
+          this.callbacks.onHandsTogether?.();
+          this.callbacks.onClap?.();
+        }
+      } else {
+        // Smoothly decay confirmation frames if hands separate
+        this.handsTogetherHoldFrames = Math.max(0, this.handsTogetherHoldFrames - 1);
       }
-
-      this.prevPalmDistance = currentDist;
+    } else if (hands.length === 1) {
+      // If hands were close together (held for >= 2 frames) and momentarily merge into 1 hand
+      // upon physical contact, trigger confirmation immediately
+      if (
+        this.handsTogetherHoldFrames >= 2 &&
+        now - this.lastCloseHandsTime < 300
+      ) {
+        this.lastClapTime = now;
+        this.handsTogetherHoldFrames = 0;
+        this.lastCloseHandsTime = 0;
+        console.log(
+          '%c[HandTracker] Hands contact confirmed via single-cluster convergence!%c',
+          'color: #10b981; font-weight: bold;',
+          'color: #e2e8f0;'
+        );
+        this.callbacks.onHandsTogether?.();
+        this.callbacks.onClap?.();
+      } else {
+        this.handsTogetherHoldFrames = Math.max(0, this.handsTogetherHoldFrames - 1);
+      }
+      this.lastMeasuredHandsDist = null;
     } else {
-      this.prevPalmDistance = null;
+      this.handsTogetherHoldFrames = 0;
+      this.lastMeasuredHandsDist = null;
     }
   }
 

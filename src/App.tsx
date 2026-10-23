@@ -112,24 +112,24 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Clap Trigger Handler
-  const handleClap = useCallback(() => {
+  // Hands Coming Together Trigger Handler -> Starts Stage 3 Absorb directly
+  const handleHandsTogether = useCallback(() => {
     initAudio();
     setState((currentState) => {
       if (currentState === 'INITIAL_WORK_TABS') {
         soundSynthesizer.playClapAcknowledge();
         const now = new Date();
         const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-        console.log(`[STATE TRANSITION] INITIAL_WORK_TABS -> ORB_FORMATION | Reason: Two-hand clap recognized | Time: ${timeStr}`);
+        console.log(`[STATE TRANSITION] INITIAL_WORK_TABS -> TAB_TRANSFER | Reason: Hands coming together recognized | Time: ${timeStr}`);
         setPreviousState('INITIAL_WORK_TABS');
         setStateEnteredAt(Date.now());
         setStateDurationSec(0);
-        setLastTransitionReason('Two-hand clap gesture recognized');
+        setLastTransitionReason('Hands coming together gesture recognized');
         setTransitionLogs((prev) => [
-          { from: 'INITIAL_WORK_TABS', to: 'ORB_FORMATION', reason: 'Two-hand clap gesture recognized', timestamp: timeStr },
+          { from: 'INITIAL_WORK_TABS', to: 'TAB_TRANSFER', reason: 'Hands coming together gesture recognized', timestamp: timeStr },
           ...prev.slice(0, 24),
         ]);
-        return 'ORB_FORMATION';
+        return 'TAB_TRANSFER';
       }
       return currentState;
     });
@@ -172,7 +172,8 @@ export default function App() {
   // Hand Tracker callbacks
   useEffect(() => {
     const tracker = new HandTracker({
-      onClap: handleClap,
+      onHandsTogether: handleHandsTogether,
+      onClap: handleHandsTogether,
       onGrabStart: (x, y) => {
         setHandInteractionPoint({ x, y });
         setIsGrabbingFromHand(true);
@@ -208,7 +209,7 @@ export default function App() {
     return () => {
       tracker.stop();
     };
-  }, [handleClap, handleFlick, handleSwipeReturn]);
+  }, [handleHandsTogether, handleFlick, handleSwipeReturn]);
 
   const simulatePickupFromDock = useCallback(() => {
     initAudio();
@@ -302,12 +303,11 @@ export default function App() {
     setTabProgress({ remaining, total, isComplete });
   }, []);
 
-  // Fallback Simulation triggers
   const simulateClap = () => {
     initAudio();
     if (state === 'INITIAL_WORK_TABS') {
       soundSynthesizer.playClapAcknowledge();
-      transitionState('ORB_FORMATION', 'Simulate Clap button clicked');
+      transitionState('TAB_TRANSFER', 'Simulate Hands Together button clicked');
     }
   };
 
