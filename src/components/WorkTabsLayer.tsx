@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ExperienceState, WorkTabItem } from '../types';
 import { soundSynthesizer } from '../services/soundSynthesizer';
 import {
@@ -7,16 +7,14 @@ import {
   Layers,
   CheckSquare,
   BarChart3,
-  Globe,
-  Sparkles,
-  Database,
   Cpu,
 } from 'lucide-react';
 
 interface WorkTabsLayerProps {
   state: ExperienceState;
-  orbCenter: { x: number; y: number }; // normalized 0..1 (e.g. 0.5, 0.45)
+  orbCenter: { x: number; y: number }; // normalized 0..1 (e.g. 0.5, 0.44)
   onAllTabsAbsorbed: () => void;
+  onTabProgress?: (remaining: number, total: number, isComplete: boolean) => void;
 }
 
 const INITIAL_TABS: WorkTabItem[] = [
@@ -80,47 +78,84 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
   state,
   orbCenter,
   onAllTabsAbsorbed,
+  onTabProgress,
 }) => {
   const [tabs, setTabs] = useState<WorkTabItem[]>(INITIAL_TABS);
-  const [absorbingTabIdx, setAbsorbingTabIdx] = useState<number>(-1);
 
-  // Trigger sequential tab transfer when state moves to TAB_TRANSFER
+  // Store callback refs so parent re-renders never tear down or restart the animation interval
+  const onAllTabsAbsorbedRef = useRef(onAllTabsAbsorbed);
+  useEffect(() => {
+    onAllTabsAbsorbedRef.current = onAllTabsAbsorbed;
+  }, [onAllTabsAbsorbed]);
+
+  const onTabProgressRef = useRef(onTabProgress);
+  useEffect(() => {
+    onTabProgressRef.current = onTabProgress;
+  }, [onTabProgress]);
+
+  // Priority 1: Guaranteed Staggered Absorption with Bounded Safety Fallback
   useEffect(() => {
     if (state === 'TAB_TRANSFER') {
-      let currentIdx = 0;
-      const interval = setInterval(() => {
-        if (currentIdx < tabs.length) {
-          const tabId = tabs[currentIdx].id;
-          const idxToAbsorb = currentIdx;
-          setAbsorbingTabIdx(currentIdx);
+      console.log('[WorkTabsLayer] Starting tab absorption sequence...');
 
+      // Reset tabs to active state
+      setTabs(INITIAL_TABS.map((t) => ({ ...t, status: 'active' })));
+      onTabProgressRef.current?.(INITIAL_TABS.length, INITIAL_TABS.length, false);
+
+      let currentIdx = 0;
+      let isCompleted = false;
+      const totalTabs = INITIAL_TABS.length;
+
+      const finishAbsorption = (reason: string) => {
+        if (isCompleted) return;
+        isCompleted = true;
+        console.log(`[WorkTabsLayer] All tabs absorbed (${reason}), transitioning to TAB_DISSOLUTION`);
+        onTabProgressRef.current?.(0, totalTabs, true);
+        onAllTabsAbsorbedRef.current();
+      };
+
+      const interval = setInterval(() => {
+        if (currentIdx < totalTabs) {
+          const tabId = INITIAL_TABS[currentIdx].id;
+          const idxToAbsorb = currentIdx;
+
+          // Animate tab flowing into the orb
           setTabs((prev) =>
             prev.map((t) => (t.id === tabId ? { ...t, status: 'transferring' } : t))
           );
-
           soundSynthesizer.playTabAbsorb(idxToAbsorb);
 
-          // After individual animation travel, mark as absorbed
+          const remaining = totalTabs - (currentIdx + 1);
+          onTabProgressRef.current?.(remaining, totalTabs, false);
+
+          // After travel animation completes, mark as absorbed
           setTimeout(() => {
             setTabs((prev) =>
               prev.map((t) => (t.id === tabId ? { ...t, status: 'absorbed' } : t))
             );
-          }, 850);
+          }, 650);
 
           currentIdx++;
         } else {
           clearInterval(interval);
-          setTimeout(() => {
-            onAllTabsAbsorbed();
-          }, 1000);
+          setTimeout(() => finishAbsorption('All tabs successfully animated into orb'), 800);
         }
-      }, 500); // 500ms staggered overlap
+      }, 420); // 420ms staggered flow
 
-      return () => clearInterval(interval);
+      // Bounded fallback timeout: guarantees progression after 4.2 seconds under any condition
+      const safetyTimeout = setTimeout(() => {
+        finishAbsorption('Bounded safety timeout fallback (4.2s)');
+      }, 4200);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(safetyTimeout);
+      };
     } else if (state === 'INITIAL_WORK_TABS') {
       setTabs(INITIAL_TABS.map((t) => ({ ...t, status: 'active' })));
+      onTabProgressRef.current?.(INITIAL_TABS.length, INITIAL_TABS.length, false);
     }
-  }, [state]);
+  }, [state]); // Stable dependency: ONLY re-runs on state changes!
 
   // If experience is beyond tab transfer & dissolution, hide external tabs entirely
   if (
@@ -164,12 +199,12 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
             key={tab.id}
             className={`absolute transition-all ${
               isTransferring
-                ? 'duration-800 ease-in opacity-0 scale-25'
+                ? 'duration-700 ease-in opacity-0 scale-25'
                 : 'duration-1000 ease-out opacity-90 hover:opacity-100'
             }`}
             style={{
               transform: isTransferring
-                ? `translate3d(0px, 0px, -200px) rotateX(${tab.initialPos.rotX * 2}deg) rotateY(${tab.initialPos.rotY * 2}deg) scale(0.1)`
+                ? `translate3d(0px, 0px, -220px) rotateX(${tab.initialPos.rotX * 2}deg) rotateY(${tab.initialPos.rotY * 2}deg) scale(0.08)`
                 : `translate3d(${tab.initialPos.x}px, ${tab.initialPos.y}px, ${tab.initialPos.z}px) rotateX(${tab.initialPos.rotX}deg) rotateY(${tab.initialPos.rotY}deg) rotateZ(${tab.initialPos.rotZ}deg)`,
               width: '260px',
               animation: isTransferring

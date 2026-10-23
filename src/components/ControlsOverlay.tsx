@@ -5,13 +5,12 @@ import {
   VolumeX,
   Camera,
   CameraOff,
-  Hand,
   Sparkles,
-  ChevronDown,
-  ChevronUp,
   RotateCcw,
   Sliders,
-  MoveRight,
+  Hand,
+  ArrowRightLeft,
+  CircleDot,
 } from 'lucide-react';
 
 interface ControlsOverlayProps {
@@ -26,7 +25,10 @@ interface ControlsOverlayProps {
   onRequestEnableCamera: () => void;
   onSimulateClap: () => void;
   onSimulateGrab: () => void;
-  onSimulateDock: () => void;
+  onSimulateSwipe: () => void;
+  onSimulatePickupFromDock: () => void;
+  onSimulateToss: () => void;
+  onSimulateFlick?: () => void;
   onReset: () => void;
   onJumpToState: (st: ExperienceState) => void;
 }
@@ -43,7 +45,10 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
   onRequestEnableCamera,
   onSimulateClap,
   onSimulateGrab,
-  onSimulateDock,
+  onSimulateSwipe,
+  onSimulatePickupFromDock,
+  onSimulateToss,
+  onSimulateFlick,
   onReset,
   onJumpToState,
 }) => {
@@ -66,12 +71,12 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
         };
       case 'TAB_TRANSFER':
         return {
-          stage: 'STAGE 1 · ACKNOWLEDGEMENT',
+          stage: 'STAGE 3 · ABSORB',
           instruction: 'Gathering workday projects and telemetry into the sphere...',
         };
       case 'TAB_DISSOLUTION':
         return {
-          stage: 'STAGE 1 · ACKNOWLEDGEMENT',
+          stage: 'STAGE 3 · DISSOLUTION',
           instruction: 'Work elements softening and dissolving into calm stardust...',
         };
       case 'BLACK_THREADS':
@@ -86,29 +91,44 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
         };
       case 'ORB_RELEASED':
         return {
-          stage: 'STAGE 3 · CLOSURE',
-          instruction: 'The orb is untethered. Reach out and pinch or grab the sphere',
-          actionLabel: 'or Click & Drag Orb',
-          onAction: onSimulateGrab,
+          stage: 'STAGE 3 · CLOSURE & PLAY',
+          instruction: 'Orb is free! Flick with an open palm to throw, or pinch and slide horizontally to return home.',
+          actionLabel: 'Pinch-Slide to Dock',
+          onAction: onSimulateSwipe,
         };
+      case 'ORB_HELD':
       case 'ORB_GRABBED':
         return {
-          stage: 'STAGE 3 · CLOSURE',
-          instruction: 'Holding the orb. Guide it towards the bonsai docking station',
-          actionLabel: 'or Auto-Dock',
-          onAction: onSimulateDock,
+          stage: 'PLAYFUL INTERACTION',
+          instruction: 'Holding orb. Flick with an open palm to launch, or pinch and slide horizontally to dock.',
+          actionLabel: 'Open-Palm Flick',
+          onAction: onSimulateFlick || onSimulateToss,
+        };
+      case 'ORB_IN_FLIGHT':
+        return {
+          stage: 'PLAYFUL INTERACTION',
+          instruction: 'Orb in flight! Catch with pinch/grab, or pinch and slide horizontally to dock.',
+          actionLabel: 'Pinch-Slide to Dock',
+          onAction: onSimulateSwipe,
+        };
+      case 'ORB_CAUGHT':
+        return {
+          stage: 'PLAYFUL INTERACTION',
+          instruction: 'Caught! Flick with an open hand to launch, or pinch and slide horizontally to return home.',
+          actionLabel: 'Open-Palm Flick',
+          onAction: onSimulateFlick || onSimulateToss,
         };
       case 'ORB_DOCKING':
         return {
-          stage: 'STAGE 3 · CLOSURE',
-          instruction: 'Settling into the bonsai docking station...',
+          stage: 'CLOSURE · DOCKING',
+          instruction: 'Returning smoothly to the bonsai docking station...',
         };
       case 'IDLE':
         return {
           stage: 'SANCTUARY · REST MODE',
-          instruction: 'Your workday is acknowledged and closed. Rest peacefully.',
-          actionLabel: 'Repeat Experience',
-          onAction: onReset,
+          instruction: 'Orb is resting peacefully. Reach out with pinch/grab to play again anytime!',
+          actionLabel: 'Pick Up Orb for Play',
+          onAction: onSimulatePickupFromDock,
         };
       default:
         return null;
@@ -134,8 +154,46 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
           </div>
         </div>
 
-        {/* Top Right Controls: Camera Preview, Audio Mute, Dev Tray Toggle */}
+        {/* Top Right Controls */}
         <div className="flex items-center gap-2">
+          {/* Quick Action: Swipe to Dock button when orb is in playful interaction */}
+          {(state === 'ORB_RELEASED' ||
+            state === 'ORB_HELD' ||
+            state === 'ORB_GRABBED' ||
+            state === 'ORB_IN_FLIGHT' ||
+            state === 'ORB_CAUGHT') && (
+            <>
+              <button
+                onClick={onSimulateFlick || onSimulateToss}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-500/30 text-cyan-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                title="Perform open-palm flick to launch orb into free flight"
+              >
+                <CircleDot className="w-3.5 h-3.5 text-cyan-300" />
+                <span>Open-Palm Flick</span>
+              </button>
+              <button
+                onClick={onSimulateSwipe}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500/30 text-amber-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(245,190,120,0.2)]"
+                title="Pinch fingers and slide horizontally to return orb smoothly to dock"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5 text-amber-300" />
+                <span>Pinch-Slide to Dock</span>
+              </button>
+            </>
+          )}
+
+          {/* Quick Action: Pick Up button when docked */}
+          {state === 'IDLE' && (
+            <button
+              onClick={onSimulatePickupFromDock}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500/30 text-amber-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(245,190,120,0.2)]"
+              title="Pick up the orb from the bonsai dock for playful tossing"
+            >
+              <Hand className="w-3.5 h-3.5 text-amber-300" />
+              <span>Pick Up Orb</span>
+            </button>
+          )}
+
           {/* Camera Status & AR Room Pass-Through Toggle */}
           <button
             onClick={() => {
@@ -175,7 +233,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             )}
           </button>
 
-          {/* AR Room Dimming Adjuster (Available when AR room is active) */}
+          {/* AR Room Dimming Adjuster */}
           {cameraStatus === 'ready' && isARPassThrough && (
             <button
               onClick={onChangeRoomDimming}
@@ -214,25 +272,36 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             {guidance.instruction}
           </p>
 
-          {guidance.actionLabel && guidance.onAction && (
-            <button
-              onClick={guidance.onAction}
-              className="mt-1 px-4 py-1.5 rounded-full text-xs font-medium text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40 shadow-[0_0_15px_rgba(245,190,120,0.25)] transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Sparkles className="w-3 h-3 text-amber-300" />
-              {guidance.actionLabel}
-            </button>
-          )}
+          <div className="flex items-center gap-2 mt-1">
+            {guidance.actionLabel && guidance.onAction && (
+              <button
+                onClick={guidance.onAction}
+                className="px-4 py-1.5 rounded-full text-xs font-medium text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40 shadow-[0_0_15px_rgba(245,190,120,0.25)] transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                {guidance.actionLabel}
+              </button>
+            )}
+
+            {state === 'IDLE' && (
+              <button
+                onClick={onReset}
+                className="px-3 py-1.5 rounded-full text-xs font-normal text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3 text-slate-400" />
+                Repeat Journey
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Bottom Stage Timeline & Dev Controller */}
       <div className="pointer-events-auto flex flex-col items-center gap-2">
-        {/* Interactive Dev Tray Drawer */}
         {showDevTray && (
           <div className="glass-panel p-3 rounded-2xl border border-white/10 flex flex-wrap items-center justify-center gap-2 max-w-2xl backdrop-blur-xl animate-breathe">
             <span className="text-[10px] text-amber-200/80 uppercase font-sans font-medium mr-1">
-              Direct Stage Jump:
+              Play & Stages:
             </span>
 
             <button
@@ -254,7 +323,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
-              2. Clap & Form
+              2. Clap
             </button>
 
             <button
@@ -265,18 +334,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
-              3. Absorb Tabs
-            </button>
-
-            <button
-              onClick={() => onJumpToState('TAB_DISSOLUTION')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'TAB_DISSOLUTION'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              4. Dissolve
+              3. Absorb
             </button>
 
             <button
@@ -287,7 +345,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
-              5. Black Threads
+              4. Tethers
             </button>
 
             <button
@@ -298,29 +356,43 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
-              6. Encouragement
+              5. Voice
             </button>
 
             <button
               onClick={() => onJumpToState('ORB_RELEASED')}
               className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'ORB_RELEASED' || state === 'ORB_GRABBED'
+                state === 'ORB_RELEASED' || state === 'ORB_HELD' || state === 'ORB_GRABBED' || state === 'ORB_IN_FLIGHT'
                   ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
-              7. Cloud & Grab
+              6. Free Play
+            </button>
+
+            {/* Play Actions in Tray */}
+            <button
+              onClick={onSimulateSwipe}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-sans bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30 cursor-pointer flex items-center gap-1"
+            >
+              <ArrowRightLeft className="w-3 h-3" />
+              Swipe to Dock
             </button>
 
             <button
-              onClick={onSimulateDock}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'IDLE' || state === 'ORB_DOCKING'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
+              onClick={onSimulatePickupFromDock}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-sans bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 cursor-pointer flex items-center gap-1"
             >
-              8. Dock Idle
+              <Hand className="w-3 h-3" />
+              Pick Up from Dock
+            </button>
+
+            <button
+              onClick={onSimulateToss}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-sans bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 cursor-pointer flex items-center gap-1"
+            >
+              <CircleDot className="w-3 h-3" />
+              Toss Orb
             </button>
 
             <button
@@ -333,12 +405,11 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
           </div>
         )}
 
-        {/* Minimal Subtle Step Indicator */}
         <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
           <div className={`w-1.5 h-1.5 rounded-full ${state === 'INITIAL_WORK_TABS' ? 'bg-amber-400' : 'bg-slate-600'}`} />
           <div className={`w-1.5 h-1.5 rounded-full ${state === 'ORB_FORMATION' || state === 'TAB_TRANSFER' || state === 'TAB_DISSOLUTION' ? 'bg-amber-400' : 'bg-slate-600'}`} />
           <div className={`w-1.5 h-1.5 rounded-full ${state === 'BLACK_THREADS' || state === 'GOLDEN_THREADS' ? 'bg-amber-400' : 'bg-slate-600'}`} />
-          <div className={`w-1.5 h-1.5 rounded-full ${state === 'ORB_RELEASED' || state === 'ORB_GRABBED' || state === 'ORB_DOCKING' || state === 'IDLE' ? 'bg-amber-400' : 'bg-slate-600'}`} />
+          <div className={`w-1.5 h-1.5 rounded-full ${state === 'ORB_RELEASED' || state === 'ORB_HELD' || state === 'ORB_GRABBED' || state === 'ORB_IN_FLIGHT' || state === 'ORB_CAUGHT' || state === 'ORB_DOCKING' || state === 'IDLE' ? 'bg-amber-400' : 'bg-slate-600'}`} />
         </div>
       </div>
     </div>

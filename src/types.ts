@@ -5,10 +5,13 @@ export type ExperienceState =
   | 'TAB_DISSOLUTION'
   | 'BLACK_THREADS'
   | 'GOLDEN_THREADS'
-  | 'ORB_RELEASED'
-  | 'ORB_GRABBED'
-  | 'ORB_DOCKING'
-  | 'IDLE';
+  | 'ORB_RELEASED' // or FREE_ORB
+  | 'ORB_HELD'     // Orb is held by a hand
+  | 'ORB_GRABBED'  // Synonym for ORB_HELD
+  | 'ORB_IN_FLIGHT'// Orb is thrown / bouncing under physics
+  | 'ORB_CAUGHT'   // Orb caught by receiving hand
+  | 'ORB_DOCKING'  // Animating back to dock via swipe
+  | 'IDLE';        // ORB_DOCKED
 
 export interface HandLandmark {
   x: number;
@@ -24,7 +27,10 @@ export interface HandData {
   thumbTip: { x: number; y: number };
   isPinching: boolean;
   isGrabbing: boolean;
+  isOpenPalm?: boolean;
+  openPalmConfidence?: number;
   pinchDistance: number;
+  velocity?: { vx: number; vy: number };
 }
 
 export interface WorkTabItem {

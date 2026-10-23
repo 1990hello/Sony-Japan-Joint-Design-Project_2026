@@ -255,6 +255,79 @@ class SoundSynthesizer {
     osc.stop(now + 0.65);
   }
 
+  // Soft tonal accent when orb is caught by other hand
+  public playCatchChime() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    const notes = [783.99, 1046.5]; // G5, C6
+    notes.forEach((freq, idx) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.03);
+
+      gain.gain.setValueAtTime(0.08, now + idx * 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.03 + 0.5);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(now + idx * 0.03);
+      osc.stop(now + idx * 0.03 + 0.55);
+    });
+  }
+
+  // Quiet, airy synthesized sound when orb bounces off a wall
+  public playBounceSound(intensity: number = 1) {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320 * (0.8 + Math.random() * 0.4), now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.15);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(600, now);
+
+    const amp = Math.min(0.09, 0.04 * intensity);
+    gain.gain.setValueAtTime(amp, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
+  // Gentle ethereal sweep when return-to-dock swipe is detected
+  public playSwipePulse() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(330, now);
+    osc.frequency.exponentialRampToValueAtTime(660, now + 0.25);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.07, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.4);
+  }
+
   // Soft resolving singing bowl chime when docked
   public playDockSettled() {
     if (!this.ctx || !this.masterGain || this.isMuted) return;
@@ -308,12 +381,18 @@ class SoundSynthesizer {
       utterance.rate = 0.85;  // gentle, unhurried cadence
       utterance.volume = 0.85;
 
-      utterance.onend = () => {
+      let hasCompleted = false;
+      const completeOnce = () => {
+        if (hasCompleted) return;
+        hasCompleted = true;
         if (onEnd) onEnd();
       };
-      utterance.onerror = () => {
-        if (onEnd) onEnd();
-      };
+
+      utterance.onend = completeOnce;
+      utterance.onerror = completeOnce;
+
+      // Safe timeout fallback: if speech synthesis is muted, blocked or fails to fire onend
+      setTimeout(completeOnce, 5200);
 
       window.speechSynthesis.speak(utterance);
     } catch (e) {
