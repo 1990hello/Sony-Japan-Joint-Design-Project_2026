@@ -11,6 +11,7 @@ import { OrbCanvas } from './components/OrbCanvas';
 import { EncouragementDisplay } from './components/EncouragementDisplay';
 import { ControlsOverlay } from './components/ControlsOverlay';
 import { DebugOverlay, TransitionLog } from './components/DebugOverlay';
+import { FootstepTrail } from './components/FootstepTrail';
 import { HandTracker } from './services/handTracking';
 import { soundSynthesizer } from './services/soundSynthesizer';
 
@@ -211,11 +212,43 @@ export default function App() {
 
   const simulatePickupFromDock = useCallback(() => {
     initAudio();
-    if (state === 'IDLE') {
+    if (state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING') {
       soundSynthesizer.playGrabChime();
       transitionState('ORB_HELD', 'Picked up from bonsai dock');
     }
   }, [state, transitionState]);
+
+  // Trigger Footstep Materialization after Orb settles in IDLE dock state
+  useEffect(() => {
+    if (state === 'IDLE') {
+      const timer = setTimeout(() => {
+        // Only trigger if still IDLE (user didn't immediately grab the orb)
+        setState((curr) => {
+          if (curr === 'IDLE') {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+            console.log(`[STATE TRANSITION] IDLE -> FOOTSTEPS_APPEARING | Reason: Orb settled in dock; glowing footsteps awaken | Time: ${timeStr}`);
+            setPreviousState('IDLE');
+            setStateEnteredAt(Date.now());
+            setStateDurationSec(0);
+            setLastTransitionReason('Orb settled in dock; glowing footsteps awaken');
+            setTransitionLogs((prev) => [
+              { from: 'IDLE', to: 'FOOTSTEPS_APPEARING', reason: 'Orb settled in dock; glowing footsteps awaken', timestamp: timeStr },
+              ...prev.slice(0, 24),
+            ]);
+            return 'FOOTSTEPS_APPEARING';
+          }
+          return curr;
+        });
+      }, 1400); // 1.4s respectful pause allowing user to register Closure completion
+
+      return () => clearTimeout(timer);
+    }
+  }, [state]);
+
+  const handleTrailComplete = useCallback(() => {
+    transitionState('FOOTSTEPS_GUIDING', 'Sequential footstep trail materialized; soft guide active');
+  }, [transitionState]);
 
   const simulateFlick = useCallback(() => {
     initAudio();
@@ -312,6 +345,13 @@ export default function App() {
         cameraStatus={cameraStatus}
         isARPassThrough={isARPassThrough}
         roomDimming={roomDimming}
+      />
+
+      {/* Layer 1.5: Glowing Holographic Footstep Trail to Doorway */}
+      <FootstepTrail
+        state={state}
+        dockPosition={DOCK_POSITION}
+        onTrailComplete={handleTrailComplete}
       />
 
       {/* Layer 2: Floating Work Tabs */}

@@ -150,11 +150,27 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
         };
       case 'IDLE':
         return {
-          condition: 'Orb resting peacefully. Reach with pinch/grab to pick up again!',
+          condition: 'Orb resting peacefully. Footstep trail awakening automatically in 1.4s...',
+          met: stateDurationSec >= 1.4,
+          next: 'FOOTSTEPS_APPEARING',
+          auto: true,
+          waitingReason: 'Brief pause allowing user to register Closure completion',
+        };
+      case 'FOOTSTEPS_APPEARING':
+        return {
+          condition: 'Particles drift from dock & 10 glowing footsteps materialize sequentially',
+          met: stateDurationSec >= 5.0,
+          next: 'FOOTSTEPS_GUIDING',
+          auto: true,
+          waitingReason: 'Footsteps sequencing towards bedroom door',
+        };
+      case 'FOOTSTEPS_GUIDING':
+        return {
+          condition: 'Footsteps softly pulsing on floor. Pick up orb anytime or rest.',
           met: isGrabbingFromHand,
-          next: 'ORB_HELD',
+          next: 'ORB_HELD (optional pickup)',
           auto: false,
-          waitingReason: 'Resting in sanctuary mode. Reach out to pick up.',
+          waitingReason: 'Peaceful guidance active. No forced action required.',
         };
       default:
         return { condition: 'None', met: false, next: 'None', auto: false, waitingReason: 'Idle' };
@@ -326,6 +342,18 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
                   8. Docking Flight
+                </button>
+                <button
+                  onClick={() => onTriggerState('IDLE', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  9. Docked (Idle)
+                </button>
+                <button
+                  onClick={() => onTriggerState('FOOTSTEPS_GUIDING', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  10. Footsteps Guide
                 </button>
               </div>
             </div>

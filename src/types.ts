@@ -11,7 +11,9 @@ export type ExperienceState =
   | 'ORB_IN_FLIGHT'// Orb is thrown / bouncing under physics
   | 'ORB_CAUGHT'   // Orb caught by receiving hand
   | 'ORB_DOCKING'  // Animating back to dock via swipe
-  | 'IDLE';        // ORB_DOCKED
+  | 'IDLE'         // ORB_DOCKED
+  | 'FOOTSTEPS_APPEARING' // Golden particles drift down and footprints fade in sequentially
+  | 'FOOTSTEPS_GUIDING';  // Footstep trail gently pulsing, guiding towards doorway
 
 export interface HandLandmark {
   x: number;

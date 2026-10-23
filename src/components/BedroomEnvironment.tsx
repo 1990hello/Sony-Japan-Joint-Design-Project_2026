@@ -20,7 +20,8 @@ export const BedroomEnvironment: React.FC<BedroomEnvironmentProps> = ({
   isARPassThrough,
   roomDimming,
 }) => {
-  const isDocked = state === 'IDLE';
+  const isDocked = state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING';
+  const isGuiding = state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING';
   const isHoldingOrb = state === 'ORB_GRABBED' || state === 'ORB_DOCKING';
   const isCameraActive = cameraStatus === 'ready' && isARPassThrough;
 
@@ -87,13 +88,75 @@ export const BedroomEnvironment: React.FC<BedroomEnvironmentProps> = ({
         </div>
       </div>
 
-      {/* 4. Atmospheric warm ambient lamp glow (soft light anchor) */}
+      {/* 4. Architectural Bedroom Doorway / Sanctuary Exit (Anchor for Footstep Trail) */}
+      <div
+        className="absolute z-1 pointer-events-none transition-all duration-1000"
+        style={{
+          left: '8%',
+          bottom: '26%',
+          width: '120px',
+          height: '42vh',
+        }}
+      >
+        {/* Soft warm light spill from living room beyond the door */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-1000 rounded-t-xl ${
+            isGuiding ? 'opacity-85' : 'opacity-40'
+          }`}
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(255, 210, 140, 0.14) 0%, rgba(255, 180, 100, 0.08) 60%, rgba(245, 160, 80, 0.22) 100%)',
+            boxShadow: isGuiding
+              ? '0 0 60px rgba(255, 200, 120, 0.3), inset 0 0 30px rgba(255, 220, 160, 0.15)'
+              : '0 0 25px rgba(200, 160, 100, 0.12)',
+            border: '1px solid rgba(255, 220, 160, 0.2)',
+            borderBottom: 'none',
+          }}
+        />
+
+        {/* Minimalist door frame accent */}
+        <div className="absolute inset-x-2 top-2 bottom-0 border-t border-x border-amber-200/20 rounded-t-lg pointer-events-none" />
+
+        {/* Warm light casting across the floor threshold */}
+        <div
+          className={`absolute -bottom-8 -left-12 -right-12 h-20 rounded-full blur-xl transition-all duration-1000 ${
+            isGuiding ? 'opacity-90 scale-110' : 'opacity-35 scale-90'
+          }`}
+          style={{
+            background:
+              'radial-gradient(ellipse at 50% 50%, rgba(255, 210, 140, 0.35) 0%, rgba(245, 170, 90, 0.12) 60%, transparent 100%)',
+          }}
+        />
+
+        {/* Subtle subtle floor threshold line */}
+        <div
+          className={`absolute bottom-0 left-0 right-0 h-[2px] transition-all duration-1000 ${
+            isGuiding
+              ? 'bg-gradient-to-r from-amber-300/10 via-amber-200/70 to-amber-300/10 shadow-[0_0_12px_rgba(255,220,160,0.8)]'
+              : 'bg-gradient-to-r from-transparent via-amber-200/20 to-transparent'
+          }`}
+        />
+
+        {/* Soft sanctuary exit hint */}
+        <div
+          className={`absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 transition-opacity duration-1000 whitespace-nowrap ${
+            isGuiding ? 'opacity-70' : 'opacity-25'
+          }`}
+        >
+          <div className={`w-1.5 h-1.5 rounded-full ${isGuiding ? 'bg-amber-300 animate-pulse' : 'bg-amber-200/40'}`} />
+          <span className="text-[9px] tracking-[0.22em] uppercase text-amber-100/70 font-sans">
+            Doorway · Rest
+          </span>
+        </div>
+      </div>
+
+      {/* 5. Atmospheric warm ambient lamp glow (soft light anchor) */}
       <div
         className="absolute top-1/4 left-1/6 w-96 h-96 rounded-full blur-[120px] pointer-events-none transition-all duration-1000 z-1"
         style={{
           background:
-            state === 'IDLE'
-              ? 'radial-gradient(circle, rgba(235, 180, 110, 0.15) 0%, transparent 70%)'
+            isDocked
+              ? 'radial-gradient(circle, rgba(235, 180, 110, 0.16) 0%, transparent 70%)'
               : 'radial-gradient(circle, rgba(200, 170, 130, 0.09) 0%, transparent 70%)',
         }}
       />

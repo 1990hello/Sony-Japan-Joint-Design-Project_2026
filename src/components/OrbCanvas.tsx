@@ -338,7 +338,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         startTime: performance.now(),
         duration: 1.1,
       };
-    } else if (state === 'IDLE') {
+    } else if (state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING') {
       dockFlightRef.current = null;
       orbVelRef.current = { vx: 0, vy: 0 };
       orbPosRef.current = { x: w * dockX, y: h * dockY };
@@ -423,12 +423,19 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       currentState === 'ORB_GRABBED' ||
       currentState === 'ORB_IN_FLIGHT' ||
       currentState === 'ORB_CAUGHT' ||
-      currentState === 'IDLE';
+      currentState === 'IDLE' ||
+      currentState === 'FOOTSTEPS_APPEARING' ||
+      currentState === 'FOOTSTEPS_GUIDING';
 
     if (!isPlayable) return;
 
-    // A. Pickup from Dock (when IDLE) or Floating (when ORB_RELEASED)
-    if (currentState === 'IDLE' || currentState === 'ORB_RELEASED') {
+    // A. Pickup from Dock (when IDLE or FOOTSTEPS) or Floating (when ORB_RELEASED)
+    if (
+      currentState === 'IDLE' ||
+      currentState === 'FOOTSTEPS_APPEARING' ||
+      currentState === 'FOOTSTEPS_GUIDING' ||
+      currentState === 'ORB_RELEASED'
+    ) {
       if (handInteractionPoint && isGrabbingFromHand) {
         const handPx = { x: handInteractionPoint.x * w, y: handInteractionPoint.y * h };
         const dist = Math.hypot(handPx.x - orbPosRef.current.x, handPx.y - orbPosRef.current.y);
@@ -503,7 +510,9 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       currentState === 'ORB_HELD' ||
       currentState === 'ORB_GRABBED' ||
       currentState === 'ORB_IN_FLIGHT' ||
-      currentState === 'IDLE';
+      currentState === 'IDLE' ||
+      currentState === 'FOOTSTEPS_APPEARING' ||
+      currentState === 'FOOTSTEPS_GUIDING';
 
     if (!isInteractive) return;
 
@@ -696,7 +705,11 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       let floatY = 0;
       if (currentState === 'ORB_RELEASED' || currentState === 'INITIAL_WORK_TABS') {
         floatY = Math.sin(t * 1.5) * 8;
-      } else if (currentState === 'IDLE') {
+      } else if (
+        currentState === 'IDLE' ||
+        currentState === 'FOOTSTEPS_APPEARING' ||
+        currentState === 'FOOTSTEPS_GUIDING'
+      ) {
         floatY = Math.sin(t * 1.2) * 3;
       }
 

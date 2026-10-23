@@ -126,7 +126,21 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
       case 'IDLE':
         return {
           stage: 'SANCTUARY · REST MODE',
-          instruction: 'Orb is resting peacefully. Reach out with pinch/grab to play again anytime!',
+          instruction: 'Orb has settled in peace. Luminous footsteps awakening...',
+          actionLabel: 'Pick Up Orb for Play',
+          onAction: onSimulatePickupFromDock,
+        };
+      case 'FOOTSTEPS_APPEARING':
+        return {
+          stage: 'SANCTUARY · GUIDING LIGHT',
+          instruction: 'Luminous golden footsteps materializing towards the door...',
+          actionLabel: 'Pick Up Orb for Play',
+          onAction: onSimulatePickupFromDock,
+        };
+      case 'FOOTSTEPS_GUIDING':
+        return {
+          stage: 'SANCTUARY · DOORWAY GUIDANCE',
+          instruction: 'Footsteps softly illuminate the path to the door. Rest or depart at your own pace.',
           actionLabel: 'Pick Up Orb for Play',
           onAction: onSimulatePickupFromDock,
         };
@@ -368,6 +382,17 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
               }`}
             >
               6. Free Play
+            </button>
+
+            <button
+              onClick={() => onJumpToState('FOOTSTEPS_GUIDING')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
+                state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING'
+                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              7. Footsteps
             </button>
 
             {/* Play Actions in Tray */}
