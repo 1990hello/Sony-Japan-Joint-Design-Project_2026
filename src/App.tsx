@@ -112,7 +112,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Hands Coming Together Trigger Handler -> Starts Stage 3 Absorb directly
+  // Hands Coming Together Trigger Handler -> Starts Orb Appearance & Formation
   const handleHandsTogether = useCallback(() => {
     initAudio();
     setState((currentState) => {
@@ -120,16 +120,16 @@ export default function App() {
         soundSynthesizer.playClapAcknowledge();
         const now = new Date();
         const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-        console.log(`[STATE TRANSITION] INITIAL_WORK_TABS -> TAB_TRANSFER | Reason: Hands coming together recognized | Time: ${timeStr}`);
+        console.log(`[STATE TRANSITION] INITIAL_WORK_TABS -> ORB_FORMATION | Reason: Hands coming together recognized | Time: ${timeStr}`);
         setPreviousState('INITIAL_WORK_TABS');
         setStateEnteredAt(Date.now());
         setStateDurationSec(0);
         setLastTransitionReason('Hands coming together gesture recognized');
         setTransitionLogs((prev) => [
-          { from: 'INITIAL_WORK_TABS', to: 'TAB_TRANSFER', reason: 'Hands coming together gesture recognized', timestamp: timeStr },
+          { from: 'INITIAL_WORK_TABS', to: 'ORB_FORMATION', reason: 'Hands coming together gesture recognized', timestamp: timeStr },
           ...prev.slice(0, 24),
         ]);
-        return 'TAB_TRANSFER';
+        return 'ORB_FORMATION';
       }
       return currentState;
     });
@@ -307,7 +307,7 @@ export default function App() {
     initAudio();
     if (state === 'INITIAL_WORK_TABS') {
       soundSynthesizer.playClapAcknowledge();
-      transitionState('TAB_TRANSFER', 'Simulate Hands Together button clicked');
+      transitionState('ORB_FORMATION', 'Simulate Hands Together button clicked');
     }
   };
 

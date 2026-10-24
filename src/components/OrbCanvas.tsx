@@ -705,7 +705,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
 
       // Subtle atmospheric floating oscillation
       let floatY = 0;
-      if (currentState === 'ORB_RELEASED' || currentState === 'INITIAL_WORK_TABS') {
+      if (currentState === 'ORB_RELEASED') {
         floatY = Math.sin(t * 1.5) * 8;
       } else if (
         currentState === 'IDLE' ||
@@ -829,7 +829,10 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       }
 
       // --- RENDER HOLOGRAPHIC ORB ---
-      if (currentState === 'ORB_FORMATION') {
+      if (currentState === 'INITIAL_WORK_TABS') {
+        // Orb must be completely invisible until hands-together gesture is detected
+        formationProgressRef.current = 0;
+      } else if (currentState === 'ORB_FORMATION') {
         formationProgressRef.current = Math.min(1, formationProgressRef.current + 0.007);
         renderEnclosingOrbFormation(ctx, currentOrbX, currentOrbY, formationProgressRef.current, t);
         if (formationProgressRef.current >= 1) {
