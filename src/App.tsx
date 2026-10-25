@@ -214,8 +214,9 @@ export default function App() {
   const simulatePickupFromDock = useCallback(() => {
     initAudio();
     if (state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING') {
+      soundSynthesizer.stopCampfireCrackle();
       soundSynthesizer.playGrabChime();
-      transitionState('ORB_HELD', 'Picked up from bonsai dock');
+      transitionState('ORB_HELD', 'Picked up from firewood cradle');
     }
   }, [state, transitionState]);
 
@@ -336,7 +337,7 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
-      {/* Layer 1: Bedroom Environment / Live Camera Room & Bonsai Docking Station */}
+      {/* Layer 1: Bedroom Environment / Live Camera Room & Firewood Cradle Docking Hearth */}
       <BedroomEnvironment
         state={state}
         isDockHovered={isDockHovered}

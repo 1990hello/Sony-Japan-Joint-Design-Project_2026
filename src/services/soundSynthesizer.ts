@@ -10,6 +10,9 @@ class SoundSynthesizer {
   private ambientOscs: OscillatorNode[] = [];
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
+  private crackleTimeout: number | null = null;
+  private crackleGain: GainNode | null = null;
+  private isCrackling: boolean = false;
 
   public init() {
     if (this.isInitialized && this.ctx) {
@@ -39,8 +42,11 @@ class SoundSynthesizer {
       const targetGain = muted ? 0 : 0.6;
       this.masterGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.05);
     }
-    if (muted && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (muted) {
+      this.stopCampfireCrackle();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     }
   }
 
@@ -352,6 +358,63 @@ class SoundSynthesizer {
       osc.start(now);
       osc.stop(now + 3.6);
     });
+
+    // Start soothing campfire crackling
+    this.startCampfireCrackle();
+  }
+
+  // Cozy procedural campfire crackle audio (gentle ember pops & warm ambient hum)
+  public startCampfireCrackle() {
+    if (!this.ctx || !this.masterGain || this.isMuted || this.isCrackling) return;
+    this.isCrackling = true;
+
+    this.crackleGain = this.ctx.createGain();
+    this.crackleGain.gain.setValueAtTime(0.045, this.ctx.currentTime);
+    this.crackleGain.connect(this.masterGain);
+
+    const triggerPop = () => {
+      if (!this.ctx || !this.crackleGain || !this.isCrackling || this.isMuted) return;
+      const now = this.ctx.currentTime;
+
+      const osc = this.ctx.createOscillator();
+      const popGain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1400 + Math.random() * 1800, now);
+      filter.Q.setValueAtTime(3 + Math.random() * 4, now);
+
+      osc.type = Math.random() > 0.5 ? 'triangle' : 'sawtooth';
+      osc.frequency.setValueAtTime(240 + Math.random() * 280, now);
+      osc.frequency.exponentialRampToValueAtTime(70, now + 0.04);
+
+      const amp = 0.025 + Math.random() * 0.04;
+      popGain.gain.setValueAtTime(amp, now);
+      popGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035 + Math.random() * 0.04);
+
+      osc.connect(filter);
+      filter.connect(popGain);
+      popGain.connect(this.crackleGain);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+
+      const nextDelay = 120 + Math.random() * 420;
+      this.crackleTimeout = window.setTimeout(triggerPop, nextDelay);
+    };
+
+    triggerPop();
+  }
+
+  public stopCampfireCrackle() {
+    this.isCrackling = false;
+    if (this.crackleTimeout !== null) {
+      clearTimeout(this.crackleTimeout);
+      this.crackleTimeout = null;
+    }
+    if (this.crackleGain && this.ctx) {
+      this.crackleGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.25);
+    }
   }
 
   // Spoken encouragement voice using Web Speech API

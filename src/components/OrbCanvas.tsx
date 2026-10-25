@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ExperienceState, HandData } from '../types';
 import { soundSynthesizer } from '../services/soundSynthesizer';
+import { FirewoodCradleManager, renderFirewoodGlassOrb } from './FirewoodCradleRenderer';
 
 interface OrbCanvasProps {
   state: ExperienceState;
@@ -117,6 +118,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   // Internal Particles, Filaments, and Threads
   const particlesRef = useRef<Particle[]>([]);
   const filamentsRef = useRef<{ angleOffset: number; speed: number; radiusRatio: number; phase: number }[]>([]);
+  const cradleManagerRef = useRef<FirewoodCradleManager>(new FirewoodCradleManager());
   const blackThreadsRef = useRef<Thread[]>([]);
   const formationProgressRef = useRef<number>(0);
   const contractingProgressRef = useRef<number>(0);
@@ -205,11 +207,11 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     particlesRef.current = parts;
 
     const fils = [];
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 14; i++) {
       fils.push({
-        angleOffset: (i * Math.PI * 2) / 9,
-        speed: 0.008 + (i % 3) * 0.004,
-        radiusRatio: 0.4 + (i % 5) * 0.12,
+        angleOffset: (i * Math.PI * 2) / 14,
+        speed: 0.007 + (i % 4) * 0.003,
+        radiusRatio: 0.35 + (i % 6) * 0.1,
         phase: Math.random() * Math.PI * 2,
       });
     }
@@ -443,6 +445,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         const dist = Math.hypot(handPx.x - orbPosRef.current.x, handPx.y - orbPosRef.current.y);
 
         if (dist < orbRadiusRef.current * 1.55) {
+          soundSynthesizer.stopCampfireCrackle();
           soundSynthesizer.playGrabChime();
           catchPulseRef.current = 1.0;
           orbVelRef.current = { vx: 0, vy: 0 };
@@ -538,6 +541,13 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         soundSynthesizer.playCatchChime();
         catchPulseRef.current = 1.0;
       } else {
+        if (
+          currentState === 'IDLE' ||
+          currentState === 'FOOTSTEPS_APPEARING' ||
+          currentState === 'FOOTSTEPS_GUIDING'
+        ) {
+          soundSynthesizer.stopCampfireCrackle();
+        }
         soundSynthesizer.playGrabChime();
       }
 
@@ -828,6 +838,21 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         });
       }
 
+      // --- RENDER FIREWOOD CRADLE (DOCKING STATION) REAR LAYER ---
+      const dockPx = { x: w * dockX, y: h * dockY };
+      const isDocked =
+        currentState === 'IDLE' ||
+        currentState === 'FOOTSTEPS_APPEARING' ||
+        currentState === 'FOOTSTEPS_GUIDING';
+      const distToDock = Math.hypot(currentOrbX - dockPx.x, currentOrbY - dockPx.y);
+      const isDockHovered = distToDock < 140 || currentState === 'ORB_DOCKING';
+
+      // Update Firewood Cradle particles (sparks, smoke)
+      cradleManagerRef.current.update(dockPx.x, dockPx.y, dt, isDocked, t);
+
+      // Render cradle rear layer: table contact shadow, back charred logs, coal bed, rear flames, smoke
+      cradleManagerRef.current.renderBack(ctx, dockPx.x, dockPx.y, isDocked, isDockHovered, t);
+
       // --- RENDER HOLOGRAPHIC ORB ---
       if (currentState === 'INITIAL_WORK_TABS') {
         // Orb must be completely invisible until hands-together gesture is detected
@@ -839,20 +864,18 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
           onStateChange('TAB_TRANSFER', 'Orb formed around scattered tabs (animation complete)');
         }
       } else {
-        const isCloudMorph =
-          currentState === 'ORB_RELEASED' ||
-          currentState === 'ORB_HELD' ||
-          currentState === 'ORB_GRABBED' ||
-          currentState === 'ORB_IN_FLIGHT' ||
-          currentState === 'ORB_CAUGHT' ||
-          currentState === 'ORB_DOCKING' ||
-          currentState === 'IDLE';
-
-        if (isCloudMorph) {
-          renderCloudOrb(ctx, currentOrbX, currentOrbY, currentRadius, t, currentState === 'IDLE');
-        } else {
-          renderGlassOrb(ctx, currentOrbX, currentOrbY, currentRadius, t, currentState);
-        }
+        // Translucent glass orb with intricate flowing golden-white energy lines
+        // and warm campfire under-illumination matching the reference image!
+        renderFirewoodGlassOrb(
+          ctx,
+          currentOrbX,
+          currentOrbY,
+          currentRadius,
+          t,
+          isDocked || (currentState === 'ORB_DOCKING' && distToDock < 90),
+          filamentsRef.current,
+          particlesRef.current
+        );
 
         // In TAB_TRANSFER: render contracting outer energy envelope as tabs move inward
         if (currentState === 'TAB_TRANSFER') {
@@ -879,6 +902,10 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
           ctx.restore();
         }
       }
+
+      // --- RENDER FIREWOOD CRADLE FRONT LAYER ---
+      // Front charred logs cradling the lower hemisphere of the orb, foreground flames & sparks
+      cradleManagerRef.current.renderFront(ctx, dockPx.x, dockPx.y, isDocked, isDockHovered, t);
 
       // --- RENDER HAND TRACKING AR OVERLAY ---
       renderHandFeedback(ctx, hands, w, h);

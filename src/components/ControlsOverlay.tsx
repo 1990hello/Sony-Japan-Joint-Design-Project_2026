@@ -121,7 +121,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
       case 'ORB_DOCKING':
         return {
           stage: 'CLOSURE · DOCKING',
-          instruction: 'Returning smoothly to the bonsai docking station...',
+          instruction: 'Returning smoothly to the cozy firewood cradle...',
         };
       case 'IDLE':
         return {
@@ -201,7 +201,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             <button
               onClick={onSimulatePickupFromDock}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500/30 text-amber-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(245,190,120,0.2)]"
-              title="Pick up the orb from the bonsai dock for playful tossing"
+              title="Pick up the orb from the firewood cradle for playful tossing"
             >
               <Hand className="w-3.5 h-3.5 text-amber-300" />
               <span>Pick Up Orb</span>

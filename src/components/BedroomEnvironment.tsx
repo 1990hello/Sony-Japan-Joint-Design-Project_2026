@@ -161,181 +161,84 @@ export const BedroomEnvironment: React.FC<BedroomEnvironmentProps> = ({
         }}
       />
 
-      {/* 5. The Bonsai Docking Station (Placed in User's Room) */}
+      {/* 5. The Firewood Cradle Docking Hearth (Anchored on Desk) */}
       <div
-        className="absolute z-20 transition-all duration-700 transform -translate-x-1/2 -translate-y-1/2"
+        className="absolute z-10 transition-all duration-700 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
         style={{
           left: `${dockPosition.x * 100}%`,
           top: `${dockPosition.y * 100}%`,
           width: '320px',
-          height: '340px',
+          height: '240px',
         }}
       >
-        {/* Contact shadow on user's real or virtual desk */}
+        {/* Contact shadow on desk under the firewood cradle */}
         <div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 w-64 h-8 rounded-full blur-md pointer-events-none"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 w-72 h-16 rounded-full blur-md pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.75) 0%, transparent 80%)',
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.88) 0%, transparent 75%)',
           }}
         />
 
-        {/* Dock Target Glow Halo */}
+        {/* Ambient warm campfire light cast onto user's desk & room */}
         <div
           className={`absolute inset-0 rounded-full transition-all duration-700 pointer-events-none ${
             isDockHovered
-              ? 'scale-115 opacity-90 shadow-[0_0_80px_rgba(245,190,120,0.45)]'
+              ? 'scale-120 opacity-95 shadow-[0_0_100px_rgba(255,140,30,0.55)]'
               : isHoldingOrb
-              ? 'scale-105 opacity-60 shadow-[0_0_50px_rgba(245,190,120,0.25)]'
+              ? 'scale-105 opacity-75 shadow-[0_0_70px_rgba(255,140,30,0.35)]'
               : isDocked
-              ? 'scale-100 opacity-70 shadow-[0_0_60px_rgba(245,190,120,0.3)]'
-              : 'scale-95 opacity-25 shadow-[0_0_30px_rgba(200,160,100,0.1)]'
+              ? 'scale-110 opacity-85 shadow-[0_0_80px_rgba(255,140,30,0.4)]'
+              : 'scale-95 opacity-40 shadow-[0_0_40px_rgba(230,100,20,0.18)]'
           }`}
           style={{
-            background: 'radial-gradient(circle at 50% 50%, rgba(245, 195, 130, 0.15) 0%, transparent 70%)',
+            background: 'radial-gradient(circle at 50% 55%, rgba(255, 140, 30, 0.22) 0%, rgba(230, 70, 10, 0.08) 60%, transparent 80%)',
           }}
         />
 
-        {/* Circular Ring Frame (The Bonsai Enclosure) */}
+        {/* Low Natural Slate Hearth Coaster on Desk */}
         <div className="relative w-full h-full flex flex-col items-center justify-end">
-          {/* Circular Metallic Ring */}
           <div
-            className={`relative w-64 h-64 rounded-full border-4 transition-all duration-500 flex items-center justify-center backdrop-blur-xs ${
+            className={`w-64 h-10 rounded-full transition-all duration-700 shadow-2xl relative flex items-center justify-center ${
               isDockHovered
-                ? 'border-amber-300/80 shadow-[0_0_35px_rgba(245,195,130,0.6)]'
+                ? 'border border-amber-400/60 shadow-[0_0_30px_rgba(255,160,40,0.4)]'
                 : isDocked
-                ? 'border-amber-200/50 shadow-[0_0_25px_rgba(245,195,130,0.35)]'
-                : 'border-zinc-700/60 shadow-[0_0_15px_rgba(0,0,0,0.8)]'
+                ? 'border border-amber-500/30 shadow-[0_0_20px_rgba(255,140,30,0.25)]'
+                : 'border border-stone-800/60'
             }`}
             style={{
-              background: 'radial-gradient(circle at 50% 45%, rgba(20, 24, 34, 0.35) 0%, rgba(10, 12, 16, 0.7) 100%)',
+              background: 'linear-gradient(to bottom, #1c1410 0%, #0e0a08 100%)',
             }}
           >
-            {/* Inner Ring Glow */}
+            {/* Subtle burnt wood ash bed glow */}
             <div
-              className={`absolute inset-2 rounded-full border transition-all duration-500 ${
-                isDockHovered
-                  ? 'border-amber-300/60 animate-pulse'
-                  : isDocked
-                  ? 'border-amber-200/30'
-                  : 'border-white/5'
+              className={`w-48 h-6 rounded-full blur-xs transition-opacity duration-700 ${
+                isDocked ? 'opacity-85' : 'opacity-40'
               }`}
+              style={{
+                background: 'radial-gradient(ellipse at 50% 50%, rgba(255, 120, 20, 0.35) 0%, rgba(180, 40, 10, 0.15) 60%, transparent 100%)',
+              }}
             />
 
-            {/* Bonsai Tree Miniature Artistry */}
-            <svg
-              className="absolute bottom-4 w-48 h-36 z-10 transition-transform duration-700"
-              viewBox="0 0 200 150"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              style={{ filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.85))' }}
-            >
-              {/* Bonsai Trunk (Graceful S-curve natural wood) */}
-              <path
-                d="M 100 145 C 95 125 78 110 82 85 C 84 70 102 65 110 50 C 114 42 110 32 108 24"
-                stroke="#3f2e22"
-                strokeWidth="10"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 98 145 C 93 125 79 110 83 85 C 85 71 101 66 109 51"
-                stroke="#5c4434"
-                strokeWidth="7"
-                strokeLinecap="round"
-              />
-              {/* Branch 1 Left */}
-              <path
-                d="M 82 90 C 65 82 52 86 40 82"
-                stroke="#4a3729"
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-              {/* Branch 2 Right */}
-              <path
-                d="M 95 72 C 118 68 135 74 152 70"
-                stroke="#4a3729"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-              />
-              {/* Branch 3 Upper Right */}
-              <path
-                d="M 108 45 C 122 38 135 41 144 36"
-                stroke="#4a3729"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-              />
-
-              {/* Foliage Clouds (Lush dark pine needles) */}
-              {/* Left foliage cluster */}
-              <ellipse cx="38" cy="80" rx="22" ry="12" fill="#1b3323" opacity="0.95" />
-              <ellipse cx="40" cy="78" rx="18" ry="9" fill="#2d5238" opacity="0.9" />
-              <ellipse cx="36" cy="76" rx="12" ry="6" fill="#467352" opacity="0.8" />
-
-              {/* Lower right foliage cluster */}
-              <ellipse cx="152" cy="68" rx="28" ry="14" fill="#1b3323" opacity="0.95" />
-              <ellipse cx="154" cy="66" rx="22" ry="10" fill="#2d5238" opacity="0.9" />
-              <ellipse cx="150" cy="63" rx="16" ry="7" fill="#467352" opacity="0.8" />
-
-              {/* Top main canopy */}
-              <ellipse cx="112" cy="22" rx="30" ry="15" fill="#1b3323" opacity="0.95" />
-              <ellipse cx="114" cy="20" rx="24" ry="11" fill="#2d5238" opacity="0.9" />
-              <ellipse cx="110" cy="18" rx="16" ry="7" fill="#467352" opacity="0.8" />
-
-              {/* Upper right side canopy */}
-              <ellipse cx="144" cy="35" rx="20" ry="11" fill="#1b3323" opacity="0.95" />
-              <ellipse cx="145" cy="33" rx="15" ry="8" fill="#2d5238" opacity="0.9" />
-
-              {/* Subtle warm light catch on leaves */}
-              <ellipse
-                cx="110"
-                cy="19"
-                rx="8"
-                ry="4"
-                fill={isDocked ? '#ffdf9e' : '#a2bfa8'}
-                opacity={isDocked ? 0.35 : 0.15}
-              />
-            </svg>
-
-            {/* Dock Target Indicator (When user holds orb and guides to dock) */}
-            {isHoldingOrb && !isDocked && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div
-                  className="w-16 h-16 rounded-full border border-dashed border-amber-300/60"
-                  style={{ animation: 'spin 8s linear infinite' }}
-                />
-                <span className="text-[10px] tracking-widest text-amber-200/80 uppercase font-sans mt-3 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm">
-                  Dock Target
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Milled Dark Wood Pedestal */}
-          <div
-            className="w-56 h-8 rounded-b-lg -mt-3 z-20 flex flex-col items-center justify-center shadow-2xl relative"
-            style={{
-              background: 'linear-gradient(to bottom, #2b1f18 0%, #17110d 100%)',
-              borderTop: '1px solid rgba(245, 195, 130, 0.25)',
-              borderBottom: '1px solid rgba(0, 0, 0, 0.8)',
-            }}
-          >
-            {/* Subtle illuminated smart home emblem */}
-            <div className="flex items-center gap-1.5 opacity-60">
-              <div className={`w-1.5 h-1.5 rounded-full ${isDocked ? 'bg-amber-400 animate-pulse' : 'bg-amber-200/40'}`} />
-              <span className="text-[8px] tracking-[0.25em] uppercase text-amber-100/60 font-sans">
-                SANCTUARY · 2040
+            {/* Subtle illuminated smart home cradle inscription */}
+            <div className="absolute -bottom-5 flex items-center gap-1.5 opacity-65">
+              <div className={`w-1.5 h-1.5 rounded-full ${isDocked ? 'bg-amber-400 animate-pulse' : 'bg-amber-300/40'}`} />
+              <span className="text-[8px] tracking-[0.26em] uppercase text-amber-200/60 font-sans">
+                SANCTUARY · FIREWOOD CRADLE
               </span>
             </div>
           </div>
 
-          {/* Calming base mist when docked */}
-          {isDocked && (
-            <div
-              className="absolute -bottom-4 w-72 h-16 rounded-full blur-xl pointer-events-none animate-mist"
-              style={{
-                background:
-                  'radial-gradient(circle, rgba(255, 230, 180, 0.25) 0%, rgba(200, 160, 100, 0.08) 60%, transparent 100%)',
-              }}
-            />
+          {/* Dock Target Indicator (When user holds orb and guides to dock) */}
+          {isHoldingOrb && !isDocked && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <div
+                className="w-20 h-20 rounded-full border border-dashed border-amber-300/70"
+                style={{ animation: 'spin 8s linear infinite' }}
+              />
+              <span className="text-[10px] tracking-widest text-amber-200/90 uppercase font-sans mt-3 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm border border-amber-400/30">
+                Cradle Target
+              </span>
+            </div>
           )}
         </div>
       </div>

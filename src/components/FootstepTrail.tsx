@@ -164,7 +164,7 @@ export const FootstepTrail: React.FC<FootstepTrailProps> = ({
       // (Elapsed: 0ms to 1800ms)
       // ==========================================
       const dockScreenX = dockPosition.x * w;
-      const dockScreenY = dockPosition.y * h + 25; // Base of bonsai pedestal
+      const dockScreenY = dockPosition.y * h + 25; // Base of firewood cradle
       const floorTargetX = TRAIL_WAYPOINTS[0].xNorm * w;
       const floorTargetY = TRAIL_WAYPOINTS[0].yNorm * h;
 

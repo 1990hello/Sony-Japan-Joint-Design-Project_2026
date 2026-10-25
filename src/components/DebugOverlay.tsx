@@ -142,11 +142,11 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
         };
       case 'ORB_DOCKING':
         return {
-          condition: 'Curved bezier flight to bonsai dock completes (1.1s)',
+          condition: 'Curved bezier flight to firewood cradle completes (1.1s)',
           met: stateDurationSec >= 1.1,
           next: 'IDLE',
           auto: true,
-          waitingReason: 'Navigating curved trajectory to bonsai pedestal',
+          waitingReason: 'Navigating curved trajectory to firewood cradle',
         };
       case 'IDLE':
         return {
