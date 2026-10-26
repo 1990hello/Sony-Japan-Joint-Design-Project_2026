@@ -64,101 +64,185 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
   // Determine transition criteria for the current state
   const getTransitionCriteria = () => {
     switch (currentState) {
+      case 'WORK_TABS':
       case 'INITIAL_WORK_TABS':
         return {
-          condition: 'Both hands gently coming together in front of camera',
-          met: hands.length >= 2,
-          next: 'TAB_TRANSFER',
+          condition: 'Hand swipe across work interfaces (or hands together)',
+          met: hands.length >= 1,
+          next: 'SWIPES_TO_RELEASE',
           auto: false,
-          waitingReason: 'Tabs scattered indefinitely. Awaiting hands coming together.',
+          waitingReason: 'Tabs scattered indefinitely. Awaiting hand swipe or hands together gesture.',
+        };
+      case 'SWIPES_TO_RELEASE':
+      case 'WORK_INTERFACES_DISSOLVING':
+        return {
+          condition: 'Swipe registered, preparing dock holographic projector (0.3s)',
+          met: stateDurationSec >= 0.3,
+          next: 'ORB_FORMATION',
+          auto: true,
+          waitingReason: 'Spawning light field above dock cradle',
         };
       case 'ORB_FORMATION':
+      case 'ORB_FORMING':
         return {
-          condition: 'Orb expanding to enclose all scattered work tabs (2.5s)',
+          condition: 'Orb coalescing and stabilizing above docking station (2.5s)',
           met: stateDurationSec >= 2.5,
-          next: 'TAB_TRANSFER',
+          next: 'ABSORB_TRANSFER',
           auto: true,
-          waitingReason: `Enclosing scattered tabs in holographic field (${(2.5 - Math.min(2.5, stateDurationSec)).toFixed(1)}s remaining)`,
+          waitingReason: `Orb forming above dock (${(2.5 - Math.min(2.5, stateDurationSec)).toFixed(1)}s remaining)`,
         };
+      case 'ABSORB_TRANSFER':
       case 'TAB_TRANSFER':
         return {
-          condition: `All ${tabsTotal} tabs flow into orb center (or 4.2s bounded fallback)`,
+          condition: `All ${tabsTotal} tabs move into orb center (or 4.0s fallback)`,
           met: tabsComplete || stateDurationSec >= 4.0,
-          next: 'TAB_DISSOLUTION',
+          next: 'DISSOLUTION',
           auto: true,
           waitingReason:
             tabsRemaining > 0
-              ? `Transferring tabs (${tabsRemaining} of ${tabsTotal} remaining)...`
+              ? `Transferring tabs into orb (${tabsRemaining} of ${tabsTotal} remaining)...`
               : 'Staggered absorption completing...',
         };
+      case 'DISSOLUTION':
       case 'TAB_DISSOLUTION':
         return {
-          condition: 'Tab dissolution into internal golden filaments (3.0s auto)',
-          met: stateDurationSec >= 3.0,
+          condition: 'Tabs dissolving into internal golden filaments (2.5s)',
+          met: stateDurationSec >= 2.5,
+          next: 'FLOOR_MIST',
+          auto: true,
+          waitingReason: `Dissolving work elements into stardust (${(2.5 - Math.min(2.5, stateDurationSec)).toFixed(1)}s remaining)`,
+        };
+      case 'FLOOR_MIST':
+      case 'ATMOSPHERE_TRANSITION':
+        return {
+          condition: 'Dock fragrance mist spreading along bedroom floor (2.5s)',
+          met: stateDurationSec >= 2.5,
           next: 'BLACK_THREADS',
           auto: true,
-          waitingReason: `Dissolving work elements into stardust (${(3.0 - Math.min(3.0, stateDurationSec)).toFixed(1)}s remaining)`,
+          waitingReason: 'Floor mist settling across bedroom floor',
         };
       case 'BLACK_THREADS':
+      case 'BLACK_THREADS_APPEAR':
         return {
-          condition: 'Black responsibility tethers anchoring (2.4s auto)',
+          condition: 'Fine black threads emerging connecting orb to desk (2.4s)',
           met: stateDurationSec >= 2.4,
-          next: 'GOLDEN_THREADS',
+          next: 'ACCOMPLISHMENTS',
           auto: true,
           waitingReason: 'Anchoring workday responsibilities to desk',
         };
+      case 'ACCOMPLISHMENTS':
+      case 'ACCOMPLISHMENTS_REVEAL':
+        return {
+          condition: 'Personal accomplishments list reading time (7.5s or click Continue)',
+          met: stateDurationSec >= 7.5,
+          next: 'ACCOMPLISHMENTS_DISSOLVE',
+          auto: true,
+          waitingReason: `Reflecting on 3 daily accomplishments (${(7.5 - Math.min(7.5, stateDurationSec)).toFixed(1)}s remaining)`,
+        };
+      case 'ACCOMPLISHMENTS_DISSOLVE':
+        return {
+          condition: 'Accomplishment text dissolving into particles (1.5s)',
+          met: stateDurationSec >= 1.5,
+          next: 'GOLDEN_ENCOURAGEMENT',
+          auto: true,
+          waitingReason: 'Accomplishments fading into golden stardust',
+        };
+      case 'GOLDEN_ENCOURAGEMENT':
+      case 'ENCOURAGEMENT':
       case 'GOLDEN_THREADS':
         return {
-          condition: 'Voice synthesis speaking + golden thread sparkles dissolution',
-          met: stateDurationSec >= 5.5,
-          next: 'ORB_RELEASED',
+          condition: 'Voice synthesis speaking encouragement message',
+          met: stateDurationSec >= 6.0,
+          next: 'CALM_RELEASE',
           auto: true,
-          waitingReason: 'Delivering spoken encouragement message and dissolving tethers',
+          waitingReason: 'Delivering spoken encouragement message',
         };
-      case 'ORB_RELEASED':
+      case 'CALM_RELEASE':
         return {
-          condition: 'Pinch/Grab hand to hold, open-palm flick to toss, or pinch-slide to dock',
-          met: isGrabbingFromHand,
-          next: 'ORB_HELD, ORB_IN_FLIGHT, or ORB_DOCKING',
-          auto: false,
-          waitingReason: 'Awaiting user gesture: open-palm flick or pinch-and-slide',
+          condition: 'Visuals simplify; orb light softens into peaceful breathing (2.6s)',
+          met: stateDurationSec >= 2.6,
+          next: 'THREAD_DISSOLUTION',
+          auto: true,
+          waitingReason: 'Calm release easing work tension',
         };
+      case 'THREAD_DISSOLUTION':
+      case 'BLACK_THREADS_DISSOLVE':
+        return {
+          condition: 'Golden threads dissolving black threads, untethering orb',
+          met: stateDurationSec >= 2.8,
+          next: 'ORB_FREE_PLAY',
+          auto: true,
+          waitingReason: 'Dissolving black threads to free the orb',
+        };
+      case 'ORB_FREE_PLAY':
+      case 'ORB_RELEASED':
       case 'ORB_HELD':
       case 'ORB_GRABBED':
-        return {
-          condition: 'Open-palm flick to launch into free flight, or pinch-and-slide horizontally to dock',
-          met: false,
-          next: 'ORB_IN_FLIGHT or ORB_DOCKING',
-          auto: false,
-          waitingReason: 'Holding orb. Flick with open hand to throw, or pinch-and-slide to dock.',
-        };
       case 'ORB_IN_FLIGHT':
+      case 'ORB_CAUGHT':
         return {
-          condition: 'Opposite hand catch (pinch/grab in radius) or pinch-and-slide to dock',
+          condition: 'Orb free play active (no auto-dock). Awaiting wave/swipe to dock.',
           met: false,
-          next: 'ORB_HELD or ORB_DOCKING',
+          next: 'DOCKING_FLIGHT',
           auto: false,
-          waitingReason: 'Free flight under physics. Bouncing off walls or awaiting catch.',
+          waitingReason: 'Play with orb (grab, flick, bounce). Wave or swipe hand to return to dock.',
         };
+      case 'DOCKING_FLIGHT':
       case 'ORB_DOCKING':
+      case 'ORB_RETURNING_TO_DOCK':
         return {
-          condition: 'Curved bezier flight to firewood cradle completes (1.1s)',
-          met: stateDurationSec >= 1.1,
-          next: 'IDLE',
+          condition: 'Curved bezier flight to dock cradle completes (1.15s)',
+          met: stateDurationSec >= 1.15,
+          next: 'DOCKED_IDLE',
           auto: true,
           waitingReason: 'Navigating curved trajectory to firewood cradle',
         };
+      case 'DOCKED_IDLE':
       case 'IDLE':
         return {
-          condition: 'Orb resting peacefully. Footstep trail awakening automatically in 1.4s...',
-          met: stateDurationSec >= 1.4,
-          next: 'FOOTSTEPS_APPEARING',
+          condition: 'Orb resting peacefully in dock. Preparing wisdom quote (1.0s)',
+          met: stateDurationSec >= 1.0,
+          next: 'WISDOM_QUOTE',
           auto: true,
-          waitingReason: 'Brief pause allowing user to register Closure completion',
+          waitingReason: 'Settling in cradle before wisdom quote presentation',
+        };
+      case 'WISDOM_QUOTE':
+      case 'QUOTE_PRESENTATION':
+        return {
+          condition: 'Voice speaks wisdom quote: "A calmer mind creates a brighter tomorrow"',
+          met: stateDurationSec >= 4.5,
+          next: 'PRINT_EDIBLE_FILM',
+          auto: true,
+          waitingReason: 'Presenting and speaking wisdom quote',
+        };
+      case 'PRINT_EDIBLE_FILM':
+      case 'EDIBLE_FILM_PRINTING':
+        return {
+          condition: 'Dock mechanically printing quote onto edible film sheet (3.4s)',
+          met: stateDurationSec >= 3.4,
+          next: 'TAKEAWAY_CHOICE',
+          auto: true,
+          waitingReason: 'Printing edible film sheet from dock slot',
+        };
+      case 'TAKEAWAY_CHOICE':
+        return {
+          condition: 'Choice A: 2 pinches to eat | Choice B: Pinch & drag to water cup',
+          met: false,
+          next: 'CLOSURE_COMPLETE',
+          auto: false,
+          waitingReason: 'Awaiting takeaway ritual choice (eat or dissolve in water)',
+        };
+      case 'CLOSURE_COMPLETE':
+        return {
+          condition: 'Ritual complete. "You\'ve done enough. Now it\'s your time."',
+          met: true,
+          next: 'None (Final Stage)',
+          auto: false,
+          waitingReason: 'Work-to-personal transition complete. Enjoy your evening.',
         };
       case 'FOOTSTEPS_APPEARING':
         return {
-          condition: 'Particles drift from dock & 10 glowing footsteps materialize sequentially',
+          condition: 'Footsteps materializing towards doorway',
           met: stateDurationSec >= 5.0,
           next: 'FOOTSTEPS_GUIDING',
           auto: true,
@@ -173,7 +257,7 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
           waitingReason: 'Peaceful guidance active. No forced action required.',
         };
       default:
-        return { condition: 'None', met: false, next: 'None', auto: false, waitingReason: 'Idle' };
+        return { condition: 'None', met: false, next: 'None', auto: false, waitingReason: 'Active' };
     }
   };
 
@@ -291,69 +375,123 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
               </div>
             </div>
 
-            {/* Quick State Forcers */}
+            {/* Quick State Forcers (All Canonical Stages) */}
             <div className="space-y-1">
-              <div className="text-slate-400 text-[10px]">Force Stage Jump:</div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="text-slate-400 text-[10px] font-semibold">Force Stage Jump:</div>
+              <div className="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto pr-1">
                 <button
-                  onClick={() => onTriggerState('INITIAL_WORK_TABS', 'Manual debug override')}
+                  onClick={() => onTriggerState('WORK_TABS', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  1. Work Tabs
+                  1.1 Work Tabs
+                </button>
+                <button
+                  onClick={() => onTriggerState('SWIPES_TO_RELEASE', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  1.2 Swipe Release
                 </button>
                 <button
                   onClick={() => onTriggerState('ORB_FORMATION', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  2. Formation
+                  1.3 Orb Formation
                 </button>
                 <button
-                  onClick={() => onTriggerState('TAB_TRANSFER', 'Manual debug override')}
+                  onClick={() => onTriggerState('ABSORB_TRANSFER', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  3. Absorb (Transfer)
+                  1.4 Absorb Tabs
                 </button>
                 <button
-                  onClick={() => onTriggerState('TAB_DISSOLUTION', 'Manual debug override')}
+                  onClick={() => onTriggerState('DISSOLUTION', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  4. Dissolution
+                  1.5 Dissolution
+                </button>
+                <button
+                  onClick={() => onTriggerState('FLOOR_MIST', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  1.6 Floor Mist
                 </button>
                 <button
                   onClick={() => onTriggerState('BLACK_THREADS', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  5. Black Threads
+                  2.1 Black Threads
                 </button>
                 <button
-                  onClick={() => onTriggerState('GOLDEN_THREADS', 'Manual debug override')}
+                  onClick={() => onTriggerState('ACCOMPLISHMENTS', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  6. Golden Threads
+                  2.2 Accomplishments
                 </button>
                 <button
-                  onClick={() => onTriggerState('ORB_RELEASED', 'Manual debug override')}
+                  onClick={() => onTriggerState('ACCOMPLISHMENTS_DISSOLVE', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  7. Orb Free Play
+                  2.3 Acc. Dissolve
                 </button>
                 <button
-                  onClick={() => onTriggerState('ORB_DOCKING', 'Manual debug override')}
+                  onClick={() => onTriggerState('GOLDEN_ENCOURAGEMENT', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  8. Docking Flight
+                  2.4 Encouragement
                 </button>
                 <button
-                  onClick={() => onTriggerState('IDLE', 'Manual debug override')}
+                  onClick={() => onTriggerState('CALM_RELEASE', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  9. Docked (Idle)
+                  2.5 Calm Release
                 </button>
                 <button
-                  onClick={() => onTriggerState('FOOTSTEPS_GUIDING', 'Manual debug override')}
+                  onClick={() => onTriggerState('THREAD_DISSOLUTION', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  10. Footsteps Guide
+                  3.1 Dissolve Threads
+                </button>
+                <button
+                  onClick={() => onTriggerState('ORB_FREE_PLAY', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 text-left truncate cursor-pointer text-[10px] font-semibold"
+                >
+                  3.2 Orb Free Play
+                </button>
+                <button
+                  onClick={() => onTriggerState('DOCKING_FLIGHT', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  3.3 Docking Flight
+                </button>
+                <button
+                  onClick={() => onTriggerState('DOCKED_IDLE', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  3.4 Docked Idle
+                </button>
+                <button
+                  onClick={() => onTriggerState('WISDOM_QUOTE', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  3.5 Wisdom Quote
+                </button>
+                <button
+                  onClick={() => onTriggerState('PRINT_EDIBLE_FILM', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
+                >
+                  3.6 Print Film
+                </button>
+                <button
+                  onClick={() => onTriggerState('TAKEAWAY_CHOICE', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-200 text-left truncate cursor-pointer text-[10px] font-semibold"
+                >
+                  3.7 Takeaway Choice
+                </button>
+                <button
+                  onClick={() => onTriggerState('CLOSURE_COMPLETE', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 text-left truncate cursor-pointer text-[10px] font-semibold"
+                >
+                  3.8 Closure Complete
                 </button>
               </div>
             </div>

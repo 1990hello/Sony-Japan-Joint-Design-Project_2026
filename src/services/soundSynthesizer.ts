@@ -540,6 +540,194 @@ class SoundSynthesizer {
       osc.stop(now + 3.0);
     });
   }
+
+  // Stage 1: Calming fragrance mist soundscape (warm filtered pink-noise/harmonic drone)
+  private mistGain: GainNode | null = null;
+  private mistOscs: OscillatorNode[] = [];
+
+  public playMistDrone() {
+    if (!this.ctx || !this.masterGain || this.isMuted || this.mistGain) return;
+    try {
+      this.mistGain = this.ctx.createGain();
+      this.mistGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.mistGain.gain.linearRampToValueAtTime(0.04, this.ctx.currentTime + 1.5);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(180, this.ctx.currentTime);
+
+      this.mistGain.connect(filter);
+      filter.connect(this.masterGain);
+
+      // Warm calming 174Hz Solfeggio frequency (known for easing tension)
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(174, this.ctx.currentTime);
+      osc.connect(this.mistGain);
+      osc.start();
+      this.mistOscs.push(osc);
+    } catch (e) {
+      console.warn('Mist drone error:', e);
+    }
+  }
+
+  public stopMistDrone() {
+    if (this.mistGain && this.ctx) {
+      this.mistGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.0);
+      setTimeout(() => {
+        this.mistOscs.forEach(o => {
+          try { o.stop(); } catch (_) {}
+        });
+        this.mistOscs = [];
+        this.mistGain = null;
+      }, 1100);
+    }
+  }
+
+  // Stage 1 swipe sound
+  public playSwipeSound() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.35);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(600, now);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.38);
+  }
+
+  // Stage 2: Crystalline gentle chime when accomplishments reveal
+  public playAccomplishmentsChime() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    const notes = [440, 554.37, 659.25, 880]; // A Major gentle chime
+    notes.forEach((freq, idx) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.05, now + idx * 0.12 + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.12 + 1.8);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now + idx * 0.12);
+      osc.stop(now + idx * 0.12 + 1.9);
+    });
+  }
+
+  // Stage 3: Smooth whisper micro-motor sound as dock prints edible film
+  public playMechanicalPrint() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < 6; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280 + (i % 2) * 40, now + i * 0.22);
+      gain.gain.setValueAtTime(0.02, now + i * 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.15);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now + i * 0.22);
+      osc.stop(now + i * 0.22 + 0.18);
+    }
+  }
+
+  // Stage 3: Effervescent sparkling fizz when film dissolves in water
+  public playWaterDissolve() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    // Delicate bubble harmonics
+    const freqs = [784, 880, 987, 1174, 1318, 1567, 1760];
+    for (let i = 0; i < 18; i++) {
+      const t = now + Math.random() * 2.2;
+      const f = freqs[Math.floor(Math.random() * freqs.length)] + (Math.random() - 0.5) * 60;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.025, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    }
+  }
+
+  // Stage 3: Soft crystalline bell when edible film is eaten directly
+  public playEdibleConsume() {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    const chord = [392.0, 587.33, 783.99, 1174.66]; // G major celestial resolution
+    chord.forEach((freq, idx) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.06, now + idx * 0.06 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.06 + 2.5);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now + idx * 0.06);
+      osc.stop(now + idx * 0.06 + 2.6);
+    });
+  }
+
+  // Voice speech for Wisdom Quote
+  public speakQuote(quote: string, onEnd?: () => void) {
+    if (this.isMuted || !('speechSynthesis' in window)) {
+      if (onEnd) setTimeout(onEnd, 2000);
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(quote);
+      utterance.rate = 0.84;
+      utterance.pitch = 0.98;
+      utterance.volume = 0.85;
+
+      const voices = window.speechSynthesis.getVoices();
+      const calmVoice =
+        voices.find((v) => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Victoria'))) ||
+        voices.find((v) => v.lang.startsWith('en'));
+      if (calmVoice) utterance.voice = calmVoice;
+
+      let hasCompleted = false;
+      const completeOnce = () => {
+        if (hasCompleted) return;
+        hasCompleted = true;
+        if (onEnd) onEnd();
+      };
+      utterance.onend = completeOnce;
+      utterance.onerror = completeOnce;
+      setTimeout(completeOnce, 5000);
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech quote error:', e);
+      if (onEnd) setTimeout(onEnd, 2000);
+    }
+  }
 }
 
 export const soundSynthesizer = new SoundSynthesizer();

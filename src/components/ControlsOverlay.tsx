@@ -8,9 +8,8 @@ import {
   Sparkles,
   RotateCcw,
   Sliders,
-  Hand,
-  ArrowRightLeft,
-  CircleDot,
+  ChevronRight,
+  Play,
 } from 'lucide-react';
 
 interface ControlsOverlayProps {
@@ -31,6 +30,9 @@ interface ControlsOverlayProps {
   onSimulateFlick?: () => void;
   onReset: () => void;
   onJumpToState: (st: ExperienceState) => void;
+  onAdvanceFromAccomplishments?: () => void;
+  onTakeawayWater?: () => void;
+  onTakeawayEat?: () => void;
 }
 
 export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
@@ -51,392 +53,528 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
   onSimulateFlick,
   onReset,
   onJumpToState,
+  onAdvanceFromAccomplishments,
+  onTakeawayWater,
+  onTakeawayEat,
 }) => {
   const [showDevTray, setShowDevTray] = useState(false);
 
-  // Contextual gentle guidance text
-  const getGuidanceText = () => {
+  // Determine current active stage number (1, 2, or 3)
+  const getActiveStageNumber = (): 1 | 2 | 3 => {
     switch (state) {
+      case 'WORK_TABS':
       case 'INITIAL_WORK_TABS':
-        return {
-          stage: 'SCATTERED WORK TABS',
-          instruction: 'Gently bring both hands together in front of you to absorb tabs into the orb',
-          actionLabel: 'or Click to Bring Hands Together',
-          onAction: onSimulateClap,
-        };
+      case 'SWIPES_TO_RELEASE':
+      case 'WORK_INTERFACES_DISSOLVING':
       case 'ORB_FORMATION':
-        return {
-          stage: 'STAGE 1 · ORB ENCLOSURE',
-          instruction: 'Holographic orb forming and expanding around the scattered tabs...',
-        };
+      case 'ORB_FORMING':
+      case 'ABSORB_TRANSFER':
       case 'TAB_TRANSFER':
-        return {
-          stage: 'STAGE 3 · ABSORB',
-          instruction: 'Enclosed tabs moving inward and absorbing into the orb core...',
-        };
+      case 'DISSOLUTION':
       case 'TAB_DISSOLUTION':
-        return {
-          stage: 'STAGE 3 · DISSOLUTION',
-          instruction: 'Work tabs fully dissolved into calm golden filaments...',
-        };
+      case 'FLOOR_MIST':
+      case 'ATMOSPHERE_TRANSITION':
+        return 1;
       case 'BLACK_THREADS':
-        return {
-          stage: 'STAGE 2 · ENCOURAGEMENT',
-          instruction: 'Lingering workday responsibilities tethering the mind...',
-        };
+      case 'BLACK_THREADS_APPEAR':
+      case 'ACCOMPLISHMENTS':
+      case 'ACCOMPLISHMENTS_REVEAL':
+      case 'ACCOMPLISHMENTS_DISSOLVE':
+      case 'GOLDEN_ENCOURAGEMENT':
+      case 'ENCOURAGEMENT':
       case 'GOLDEN_THREADS':
-        return {
-          stage: 'STAGE 2 · ENCOURAGEMENT',
-          instruction: 'Luminous golden filaments weaving words of reassurance...',
-        };
+      case 'CALM_RELEASE':
+        return 2;
+      case 'THREAD_DISSOLUTION':
+      case 'BLACK_THREADS_DISSOLVE':
+      case 'ORB_FREE_PLAY':
       case 'ORB_RELEASED':
-        return {
-          stage: 'STAGE 3 · CLOSURE & PLAY',
-          instruction: 'Orb is free! Flick with an open palm to throw, or pinch and slide horizontally to return home.',
-          actionLabel: 'Pinch-Slide to Dock',
-          onAction: onSimulateSwipe,
-        };
       case 'ORB_HELD':
       case 'ORB_GRABBED':
-        return {
-          stage: 'PLAYFUL INTERACTION',
-          instruction: 'Holding orb. Flick with an open palm to launch, or pinch and slide horizontally to dock.',
-          actionLabel: 'Open-Palm Flick',
-          onAction: onSimulateFlick || onSimulateToss,
-        };
       case 'ORB_IN_FLIGHT':
-        return {
-          stage: 'PLAYFUL INTERACTION',
-          instruction: 'Orb in flight! Catch with pinch/grab, or pinch and slide horizontally to dock.',
-          actionLabel: 'Pinch-Slide to Dock',
-          onAction: onSimulateSwipe,
-        };
       case 'ORB_CAUGHT':
-        return {
-          stage: 'PLAYFUL INTERACTION',
-          instruction: 'Caught! Flick with an open hand to launch, or pinch and slide horizontally to return home.',
-          actionLabel: 'Open-Palm Flick',
-          onAction: onSimulateFlick || onSimulateToss,
-        };
+      case 'DOCKING_FLIGHT':
       case 'ORB_DOCKING':
-        return {
-          stage: 'CLOSURE · DOCKING',
-          instruction: 'Returning smoothly to the cozy firewood cradle...',
-        };
+      case 'ORB_RETURNING_TO_DOCK':
+      case 'DOCKED_IDLE':
       case 'IDLE':
-        return {
-          stage: 'SANCTUARY · REST MODE',
-          instruction: 'Orb has settled in peace. Luminous footsteps awakening...',
-          actionLabel: 'Pick Up Orb for Play',
-          onAction: onSimulatePickupFromDock,
-        };
+      case 'WISDOM_QUOTE':
+      case 'QUOTE_PRESENTATION':
+      case 'PRINT_EDIBLE_FILM':
+      case 'EDIBLE_FILM_PRINTING':
+      case 'TAKEAWAY_CHOICE':
+      case 'CLOSURE_COMPLETE':
       case 'FOOTSTEPS_APPEARING':
-        return {
-          stage: 'SANCTUARY · GUIDING LIGHT',
-          instruction: 'Luminous golden footsteps materializing towards the door...',
-          actionLabel: 'Pick Up Orb for Play',
-          onAction: onSimulatePickupFromDock,
-        };
       case 'FOOTSTEPS_GUIDING':
-        return {
-          stage: 'SANCTUARY · DOORWAY GUIDANCE',
-          instruction: 'Footsteps softly illuminate the path to the door. Rest or depart at your own pace.',
-          actionLabel: 'Pick Up Orb for Play',
-          onAction: onSimulatePickupFromDock,
-        };
       default:
-        return null;
+        return 3;
     }
   };
 
-  const guidance = getGuidanceText();
+  const activeStage = getActiveStageNumber();
+
+  // Contextual guidance text and primary action button for each canonical state
+  const getGuidance = () => {
+    switch (state) {
+      case 'WORK_TABS':
+      case 'INITIAL_WORK_TABS':
+        return {
+          stepNum: '1.1',
+          title: 'Start · Release the day’s work',
+          instruction: 'Close individual work tabs or perform a hand swipe across the windows to release.',
+          actionLabel: 'Swipe to Release Work',
+          onAction: onSimulateSwipe,
+          altActionLabel: 'Hands Together Gesture',
+          onAltAction: onSimulateClap,
+        };
+      case 'SWIPES_TO_RELEASE':
+      case 'WORK_INTERFACES_DISSOLVING':
+        return {
+          stepNum: '1.2',
+          title: 'Swipe to Release',
+          instruction: 'User swipe initiated. Preparing holographic projector...',
+        };
+      case 'ORB_FORMATION':
+      case 'ORB_FORMING':
+        return {
+          stepNum: '1.3',
+          title: 'Orb Formation Above Dock',
+          instruction: 'Orb appearing and forming above the docking station; work tabs remain stationary...',
+        };
+      case 'ABSORB_TRANSFER':
+      case 'TAB_TRANSFER':
+        return {
+          stepNum: '1.4',
+          title: 'Absorb Work Tabs',
+          instruction: 'Orb is formed. Work tabs moving inward from scattered positions into the orb core...',
+        };
+      case 'DISSOLUTION':
+      case 'TAB_DISSOLUTION':
+        return {
+          stepNum: '1.5',
+          title: 'Work Dissolution',
+          instruction: 'Tabs dissolving into internal stardust particles and filaments inside the orb...',
+        };
+      case 'FLOOR_MIST':
+      case 'ATMOSPHERE_TRANSITION':
+        return {
+          stepNum: '1.6',
+          title: 'Floor Mist Layer',
+          instruction: 'Dock emits calming fragrance; dream-like mist spreads gently along the floor...',
+        };
+      case 'BLACK_THREADS':
+      case 'BLACK_THREADS_APPEAR':
+        return {
+          stepNum: '2.1',
+          title: 'Lingering Concerns (Black Threads)',
+          instruction: 'Fine black threads emerge connecting orb to desk, representing lingering work concerns...',
+        };
+      case 'ACCOMPLISHMENTS':
+      case 'ACCOMPLISHMENTS_REVEAL':
+        return {
+          stepNum: '2.2',
+          title: 'Personal Accomplishments',
+          instruction: 'Your day’s efforts are reflected in a personalised progress list inside the orb.',
+          actionLabel: 'Continue to Encouragement',
+          onAction: onAdvanceFromAccomplishments || (() => onJumpToState('ACCOMPLISHMENTS_DISSOLVE')),
+        };
+      case 'ACCOMPLISHMENTS_DISSOLVE':
+        return {
+          stepNum: '2.3',
+          title: 'Accomplishments Dissolving',
+          instruction: 'Accomplishment text dissolves gently into golden filaments...',
+        };
+      case 'GOLDEN_ENCOURAGEMENT':
+      case 'ENCOURAGEMENT':
+      case 'GOLDEN_THREADS':
+        return {
+          stepNum: '2.4',
+          title: 'Golden Encouragement',
+          instruction: 'Delicate golden threads weave words of reassurance: “You have done enough.”',
+          actionLabel: 'Proceed to Release',
+          onAction: () => onJumpToState('CALM_RELEASE'),
+        };
+      case 'CALM_RELEASE':
+        return {
+          stepNum: '2.5',
+          title: 'Calm & Release',
+          instruction: 'Orb light softens into calm orbital rings, creating quiet space to let go.',
+          actionLabel: 'Dissolve Connections',
+          onAction: () => onJumpToState('THREAD_DISSOLUTION'),
+        };
+      case 'THREAD_DISSOLUTION':
+      case 'BLACK_THREADS_DISSOLVE':
+        return {
+          stepNum: '3.1',
+          title: 'Thread Dissolution',
+          instruction: 'Golden threads interact with black threads, dissolving them and freeing the orb...',
+        };
+      case 'ORB_FREE_PLAY':
+      case 'ORB_RELEASED':
+      case 'ORB_HELD':
+      case 'ORB_GRABBED':
+      case 'ORB_IN_FLIGHT':
+      case 'ORB_CAUGHT':
+        return {
+          stepNum: '3.2',
+          title: 'Orb Free Play',
+          instruction: 'Orb is free! Play with it (flick, grab, wall bounces). When ready, wave or swipe to return to dock.',
+          actionLabel: 'Wave / Swipe to Dock',
+          onAction: onSimulateSwipe,
+          altActionLabel: 'Open-Palm Flick',
+          onAltAction: onSimulateFlick || onSimulateToss,
+        };
+      case 'DOCKING_FLIGHT':
+      case 'ORB_DOCKING':
+      case 'ORB_RETURNING_TO_DOCK':
+        return {
+          stepNum: '3.3',
+          title: 'Docking Flight',
+          instruction: 'Orb navigating curved trajectory to the docking station projector cradle...',
+        };
+      case 'DOCKED_IDLE':
+      case 'IDLE':
+        return {
+          stepNum: '3.4',
+          title: 'Docked Idle',
+          instruction: 'Orb safely resting in docking cradle. Preparing evening wisdom quote...',
+        };
+      case 'WISDOM_QUOTE':
+      case 'QUOTE_PRESENTATION':
+        return {
+          stepNum: '3.5',
+          title: 'Wisdom Quote',
+          instruction: '“A calmer mind creates a brighter tomorrow.” Spoken aloud and presented on dock...',
+          actionLabel: 'Print Edible Film',
+          onAction: () => onJumpToState('PRINT_EDIBLE_FILM'),
+        };
+      case 'PRINT_EDIBLE_FILM':
+      case 'EDIBLE_FILM_PRINTING':
+        return {
+          stepNum: '3.6',
+          title: 'Print Edible Film',
+          instruction: 'Dock physically prints wisdom quote onto translucent edible film sheet...',
+          actionLabel: 'Proceed to Choice',
+          onAction: () => onJumpToState('TAKEAWAY_CHOICE'),
+        };
+      case 'TAKEAWAY_CHOICE':
+        return {
+          stepNum: '3.7',
+          title: 'Takeaway Ritual Choice',
+          instruction: 'Pinch film twice to eat, or drag it into the water glass on desk to dissolve.',
+          actionLabel: 'Dissolve in Water',
+          onAction: onTakeawayWater || (() => onJumpToState('CLOSURE_COMPLETE')),
+          altActionLabel: 'Eat Edible Film (2 Pinches)',
+          onAltAction: onTakeawayEat || (() => onJumpToState('CLOSURE_COMPLETE')),
+        };
+      case 'CLOSURE_COMPLETE':
+      case 'FOOTSTEPS_GUIDING':
+      case 'FOOTSTEPS_APPEARING':
+        return {
+          stepNum: '3.8',
+          title: 'Closure Complete',
+          instruction: '“You’ve done enough. Now it’s your time.” Ritual finished. Enjoy your personal evening.',
+          actionLabel: 'Experience Again',
+          onAction: onReset,
+        };
+      default:
+        return {
+          stepNum: 'AR',
+          title: 'AR Smart Sanctuary',
+          instruction: 'Interact with the holographic interface in front of you.',
+          actionLabel: 'Return to Dock',
+          onAction: onSimulateSwipe,
+        };
+    }
+  };
+
+  const guidance = getGuidance();
 
   return (
-    <div className="absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between p-6">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between w-full pointer-events-auto">
-        {/* Brand & Stage Indicator */}
+    <div className="absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 md:p-6 select-none font-sans">
+      {/* Top Header Bar: 3-Stage Progress Nav & System Affordances */}
+      <header className="flex items-center justify-between gap-4 w-full">
+        {/* Left: Journey Brand Lockup */}
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,190,120,0.8)] animate-pulse" />
-          <div className="flex flex-col">
-            <span className="text-[10px] tracking-[0.25em] uppercase text-amber-200/60 font-sans">
-              2040 SMART HOME · EVENING SANCTUARY
-            </span>
-            <span className="text-xs font-serif-luxury text-slate-300 font-light tracking-wide">
-              {guidance?.stage || 'Sanctuary Experience'}
-            </span>
+          <div className="p-2 rounded-xl bg-slate-900/80 border border-amber-300/30 backdrop-blur-md shadow-lg pointer-events-auto">
+            <Sparkles className="w-4 h-4 text-amber-300" />
+          </div>
+          <div>
+            <div className="text-xs md:text-sm font-semibold tracking-wide text-slate-100 uppercase">
+              The Journey
+            </div>
+            <div className="text-[10px] md:text-xs text-amber-200/70 hidden sm:block">
+              From work mode to personal time
+            </div>
           </div>
         </div>
 
-        {/* Top Right Controls */}
-        <div className="flex items-center gap-2">
-          {/* Quick Action: Swipe to Dock button when orb is in playful interaction */}
-          {(state === 'ORB_RELEASED' ||
-            state === 'ORB_HELD' ||
-            state === 'ORB_GRABBED' ||
-            state === 'ORB_IN_FLIGHT' ||
-            state === 'ORB_CAUGHT') && (
-            <>
-              <button
-                onClick={onSimulateFlick || onSimulateToss}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-500/30 text-cyan-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(34,211,238,0.2)]"
-                title="Perform open-palm flick to launch orb into free flight"
-              >
-                <CircleDot className="w-3.5 h-3.5 text-cyan-300" />
-                <span>Open-Palm Flick</span>
-              </button>
-              <button
-                onClick={onSimulateSwipe}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500/30 text-amber-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(245,190,120,0.2)]"
-                title="Pinch fingers and slide horizontally to return orb smoothly to dock"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5 text-amber-300" />
-                <span>Pinch-Slide to Dock</span>
-              </button>
-            </>
-          )}
-
-          {/* Quick Action: Pick Up button when docked */}
-          {state === 'IDLE' && (
-            <button
-              onClick={onSimulatePickupFromDock}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500/30 text-amber-200 text-[11px] backdrop-blur-md transition-all cursor-pointer shadow-[0_0_15px_rgba(245,190,120,0.2)]"
-              title="Pick up the orb from the firewood cradle for playful tossing"
-            >
-              <Hand className="w-3.5 h-3.5 text-amber-300" />
-              <span>Pick Up Orb</span>
-            </button>
-          )}
-
-          {/* Camera Status & AR Room Pass-Through Toggle */}
+        {/* Center: The 3 Stage Steppers */}
+        <div className="hidden lg:flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/85 border border-white/10 backdrop-blur-md shadow-xl pointer-events-auto">
+          {/* Stage 1 */}
           <button
-            onClick={() => {
-              if (cameraStatus === 'ready') {
-                onToggleARPassThrough();
-              } else {
-                onRequestEnableCamera();
-              }
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/60 border border-white/10 hover:border-amber-400/40 text-slate-300 text-[11px] backdrop-blur-md transition-all cursor-pointer"
-            title={
-              cameraStatus === 'ready'
-                ? isARPassThrough
-                  ? 'Switch to Virtual Sanctuary Backdrop'
-                  : 'Switch to Live AR Camera Room'
-                : 'Click to enable camera for live room background & gestures'
-            }
+            onClick={() => onJumpToState('WORK_TABS')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+              activeStage === 1
+                ? 'bg-amber-400/20 border border-amber-300/40 text-amber-200 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
           >
-            {cameraStatus === 'ready' ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-                <Camera className="w-3.5 h-3.5 text-emerald-300" />
-                <span>{isARPassThrough ? 'AR Room: Live' : 'Virtual Room'}</span>
-              </>
-            ) : cameraStatus === 'loading' ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                <Camera className="w-3.5 h-3.5 text-amber-300" />
-                <span>Connecting Camera...</span>
-              </>
-            ) : (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                <CameraOff className="w-3.5 h-3.5 text-amber-300" />
-                <span>Enable Camera</span>
-              </>
-            )}
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold bg-amber-400/30 text-amber-200">
+              1
+            </span>
+            <span className="font-medium whitespace-nowrap">Start</span>
           </button>
 
-          {/* AR Room Dimming Adjuster */}
-          {cameraStatus === 'ready' && isARPassThrough && (
-            <button
-              onClick={onChangeRoomDimming}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-900/60 border border-white/10 hover:border-amber-400/40 text-slate-300 text-[11px] backdrop-blur-md transition-all cursor-pointer"
-              title="Adjust Room Contrast / Dimming"
-            >
-              <Sparkles className="w-3 h-3 text-amber-300" />
-              <span>Dim: {Math.round(roomDimming * 100)}%</span>
-            </button>
-          )}
+          <ChevronRight className="w-3 h-3 text-slate-600" />
 
-          {/* Audio Mute/Unmute */}
+          {/* Stage 2 */}
           <button
-            onClick={onToggleMute}
-            className="p-2 rounded-full bg-slate-900/60 border border-white/10 hover:border-amber-400/40 text-slate-300 hover:text-amber-200 backdrop-blur-md transition-all cursor-pointer"
-            title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
+            onClick={() => onJumpToState('ACCOMPLISHMENTS')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+              activeStage === 2
+                ? 'bg-amber-400/20 border border-amber-300/40 text-amber-200 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold bg-amber-400/30 text-amber-200">
+              2
+            </span>
+            <span className="font-medium whitespace-nowrap">Acknowledgement</span>
           </button>
 
-          {/* Dev Tray Expand */}
+          <ChevronRight className="w-3 h-3 text-slate-600" />
+
+          {/* Stage 3 */}
           <button
-            onClick={() => setShowDevTray(!showDevTray)}
-            className="p-2 rounded-full bg-slate-900/60 border border-white/10 hover:border-amber-400/40 text-slate-300 hover:text-amber-200 backdrop-blur-md transition-all cursor-pointer"
-            title="Stage Navigator & Test Controls"
+            onClick={() => onJumpToState('ORB_FREE_PLAY')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+              activeStage === 3
+                ? 'bg-amber-400/20 border border-amber-300/40 text-amber-200 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
           >
-            <Sliders className="w-3.5 h-3.5" />
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold bg-amber-400/30 text-amber-200">
+              3
+            </span>
+            <span className="font-medium whitespace-nowrap">Closure</span>
           </button>
         </div>
-      </div>
 
-      {/* Center Dynamic Guidance Instruction */}
-      {guidance && (
-        <div className="self-center flex flex-col items-center text-center pointer-events-auto transition-all duration-700 max-w-lg mb-8">
-          <p className="text-sm md:text-base font-light text-slate-200/90 tracking-wide font-sans mb-2 px-4 py-1.5 rounded-full bg-slate-900/40 backdrop-blur-md border border-white/5 shadow-xl">
-            {guidance.instruction}
-          </p>
+        {/* Right: Quick System Affordances */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Audio Mute Toggle */}
+          <button
+            onClick={onToggleMute}
+            className="p-2 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-md cursor-pointer"
+            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-amber-300" />}
+          </button>
 
-          <div className="flex items-center gap-2 mt-1">
-            {guidance.actionLabel && guidance.onAction && (
-              <button
-                onClick={guidance.onAction}
-                className="px-4 py-1.5 rounded-full text-xs font-medium text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40 shadow-[0_0_15px_rgba(245,190,120,0.25)] transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                {guidance.actionLabel}
-              </button>
-            )}
+          {/* Camera Toggle */}
+          <button
+            onClick={onToggleARPassThrough}
+            className="p-2 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-md cursor-pointer"
+            title="Toggle AR Passthrough Mode"
+          >
+            {isARPassThrough ? <Camera className="w-4 h-4 text-emerald-400" /> : <CameraOff className="w-4 h-4 text-slate-400" />}
+          </button>
 
-            {state === 'IDLE' && (
-              <button
-                onClick={onReset}
-                className="px-3 py-1.5 rounded-full text-xs font-normal text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3 text-slate-400" />
-                Repeat Journey
-              </button>
-            )}
+          {/* Dev Tray Toggle */}
+          <button
+            onClick={() => setShowDevTray((p) => !p)}
+            className="p-2 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-md cursor-pointer"
+            title="Toggle Journey Stage Navigator"
+          >
+            <Sliders className="w-4 h-4" />
+          </button>
+
+          {/* Reset Experience */}
+          <button
+            onClick={onReset}
+            className="p-2 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-800/80 backdrop-blur-md transition-all shadow-md cursor-pointer"
+            title="Restart Experience"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Developer State Tray (Journey Stage Navigator with all 18 sequential steps) */}
+      {showDevTray && (
+        <div className="mx-auto my-2 p-4 rounded-2xl bg-slate-900/95 border border-amber-300/30 backdrop-blur-xl shadow-2xl max-w-3xl w-full pointer-events-auto text-xs">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
+            <span className="font-semibold text-amber-200 uppercase tracking-wider text-[11px]">
+              Journey Stage Navigator (Canonical States)
+            </span>
+            <button
+              onClick={() => setShowDevTray(false)}
+              className="text-slate-400 hover:text-white text-xs cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            <button
+              onClick={() => onJumpToState('WORK_TABS')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              1.1 Work Tabs
+            </button>
+            <button
+              onClick={() => onJumpToState('SWIPES_TO_RELEASE')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              1.2 Swipe Release
+            </button>
+            <button
+              onClick={() => onJumpToState('ORB_FORMATION')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              1.3 Orb Formation
+            </button>
+            <button
+              onClick={() => onJumpToState('ABSORB_TRANSFER')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              1.4 Absorb Tabs
+            </button>
+            <button
+              onClick={() => onJumpToState('DISSOLUTION')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              1.5 Dissolution
+            </button>
+            <button
+              onClick={() => onJumpToState('FLOOR_MIST')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              1.6 Floor Mist
+            </button>
+            <button
+              onClick={() => onJumpToState('BLACK_THREADS')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              2.1 Black Threads
+            </button>
+            <button
+              onClick={() => onJumpToState('ACCOMPLISHMENTS')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              2.2 Accomplishments
+            </button>
+            <button
+              onClick={() => onJumpToState('ACCOMPLISHMENTS_DISSOLVE')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              2.3 Dissolve Progress
+            </button>
+            <button
+              onClick={() => onJumpToState('GOLDEN_ENCOURAGEMENT')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              2.4 Encouragement
+            </button>
+            <button
+              onClick={() => onJumpToState('CALM_RELEASE')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              2.5 Calm & Release
+            </button>
+            <button
+              onClick={() => onJumpToState('THREAD_DISSOLUTION')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              3.1 Dissolve Threads
+            </button>
+            <button
+              onClick={() => onJumpToState('ORB_FREE_PLAY')}
+              className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-left border border-amber-400/30 truncate cursor-pointer font-bold"
+            >
+              3.2 Orb Free Play
+            </button>
+            <button
+              onClick={() => onJumpToState('DOCKING_FLIGHT')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              3.3 Docking Flight
+            </button>
+            <button
+              onClick={() => onJumpToState('DOCKED_IDLE')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              3.4 Docked Idle
+            </button>
+            <button
+              onClick={() => onJumpToState('WISDOM_QUOTE')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              3.5 Wisdom Quote
+            </button>
+            <button
+              onClick={() => onJumpToState('PRINT_EDIBLE_FILM')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              3.6 Print Edible Film
+            </button>
+            <button
+              onClick={() => onJumpToState('TAKEAWAY_CHOICE')}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
+            >
+              3.7 Takeaway Choice
+            </button>
+            <button
+              onClick={() => onJumpToState('CLOSURE_COMPLETE')}
+              className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-left border border-amber-300/30 truncate cursor-pointer"
+            >
+              3.8 Closure Complete
+            </button>
           </div>
         </div>
       )}
 
-      {/* Bottom Stage Timeline & Dev Controller */}
-      <div className="pointer-events-auto flex flex-col items-center gap-2">
-        {showDevTray && (
-          <div className="glass-panel p-3 rounded-2xl border border-white/10 flex flex-wrap items-center justify-center gap-2 max-w-2xl backdrop-blur-xl animate-breathe">
-            <span className="text-[10px] text-amber-200/80 uppercase font-sans font-medium mr-1">
-              Play & Stages:
-            </span>
-
-            <button
-              onClick={() => onJumpToState('INITIAL_WORK_TABS')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'INITIAL_WORK_TABS'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              1. Tabs
-            </button>
-
-            <button
-              onClick={onSimulateClap}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'ORB_FORMATION'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              2. Clap
-            </button>
-
-            <button
-              onClick={() => onJumpToState('TAB_TRANSFER')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'TAB_TRANSFER'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              3. Absorb
-            </button>
-
-            <button
-              onClick={() => onJumpToState('BLACK_THREADS')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'BLACK_THREADS'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              4. Tethers
-            </button>
-
-            <button
-              onClick={() => onJumpToState('GOLDEN_THREADS')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'GOLDEN_THREADS'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              5. Voice
-            </button>
-
-            <button
-              onClick={() => onJumpToState('ORB_RELEASED')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'ORB_RELEASED' || state === 'ORB_HELD' || state === 'ORB_GRABBED' || state === 'ORB_IN_FLIGHT'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              6. Free Play
-            </button>
-
-            <button
-              onClick={() => onJumpToState('FOOTSTEPS_GUIDING')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-sans border transition-all cursor-pointer ${
-                state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING'
-                  ? 'bg-amber-400/30 text-amber-200 border-amber-400/60'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              7. Footsteps
-            </button>
-
-            {/* Play Actions in Tray */}
-            <button
-              onClick={onSimulateSwipe}
-              className="px-2.5 py-1 rounded-lg text-[10px] font-sans bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30 cursor-pointer flex items-center gap-1"
-            >
-              <ArrowRightLeft className="w-3 h-3" />
-              Swipe to Dock
-            </button>
-
-            <button
-              onClick={onSimulatePickupFromDock}
-              className="px-2.5 py-1 rounded-lg text-[10px] font-sans bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 cursor-pointer flex items-center gap-1"
-            >
-              <Hand className="w-3 h-3" />
-              Pick Up from Dock
-            </button>
-
-            <button
-              onClick={onSimulateToss}
-              className="px-2.5 py-1 rounded-lg text-[10px] font-sans bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 cursor-pointer flex items-center gap-1"
-            >
-              <CircleDot className="w-3 h-3" />
-              Toss Orb
-            </button>
-
-            <button
-              onClick={onReset}
-              className="p-1 rounded-lg bg-white/5 text-slate-400 hover:text-white border border-white/10 cursor-pointer"
-              title="Reset Experience"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
+      {/* Bottom Guidance Card & Primary Fallback Action Button */}
+      <footer className="w-full max-w-xl mx-auto pointer-events-auto">
+        <div className="p-4 md:p-5 rounded-2xl bg-slate-950/85 border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Step Indicator & Human Text */}
+          <div className="flex-1 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+              <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-mono text-[10px] border border-amber-300/30">
+                Step {guidance.stepNum}
+              </span>
+              <span className="text-xs font-semibold text-slate-200">
+                {guidance.title}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-md">
+              {guidance.instruction}
+            </p>
           </div>
-        )}
 
-        <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
-          <div className={`w-1.5 h-1.5 rounded-full ${state === 'INITIAL_WORK_TABS' ? 'bg-amber-400' : 'bg-slate-600'}`} />
-          <div className={`w-1.5 h-1.5 rounded-full ${state === 'ORB_FORMATION' || state === 'TAB_TRANSFER' || state === 'TAB_DISSOLUTION' ? 'bg-amber-400' : 'bg-slate-600'}`} />
-          <div className={`w-1.5 h-1.5 rounded-full ${state === 'BLACK_THREADS' || state === 'GOLDEN_THREADS' ? 'bg-amber-400' : 'bg-slate-600'}`} />
-          <div className={`w-1.5 h-1.5 rounded-full ${state === 'ORB_RELEASED' || state === 'ORB_HELD' || state === 'ORB_GRABBED' || state === 'ORB_IN_FLIGHT' || state === 'ORB_CAUGHT' || state === 'ORB_DOCKING' || state === 'IDLE' ? 'bg-amber-400' : 'bg-slate-600'}`} />
+          {/* Action Affordances */}
+          <div className="flex items-center gap-2 shrink-0">
+            {guidance.actionLabel && (
+              <button
+                onClick={guidance.onAction}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-semibold tracking-wide flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:scale-102 cursor-pointer"
+              >
+                <span>{guidance.actionLabel}</span>
+                <Play className="w-3 h-3 fill-current" />
+              </button>
+            )}
+
+            {guidance.altActionLabel && (
+              <button
+                onClick={guidance.altActionLabel ? guidance.onAltAction : undefined}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 text-slate-300 text-xs font-medium transition-all cursor-pointer"
+              >
+                {guidance.altActionLabel}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };

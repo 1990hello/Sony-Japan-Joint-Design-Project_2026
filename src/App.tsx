@@ -9,6 +9,7 @@ import { BedroomEnvironment } from './components/BedroomEnvironment';
 import { WorkTabsLayer } from './components/WorkTabsLayer';
 import { OrbCanvas } from './components/OrbCanvas';
 import { EncouragementDisplay } from './components/EncouragementDisplay';
+import { EdibleFilmTakeaway } from './components/EdibleFilmTakeaway';
 import { ControlsOverlay } from './components/ControlsOverlay';
 import { DebugOverlay, TransitionLog } from './components/DebugOverlay';
 import { FootstepTrail } from './components/FootstepTrail';
@@ -28,7 +29,7 @@ const ENCOURAGEMENT_MESSAGES = [
 const DOCK_POSITION = { x: 0.68, y: 0.58 };
 
 export default function App() {
-  const [state, setState] = useState<ExperienceState>('INITIAL_WORK_TABS');
+  const [state, setState] = useState<ExperienceState>('WORK_TABS');
   const [previousState, setPreviousState] = useState<ExperienceState | null>(null);
   const [stateEnteredAt, setStateEnteredAt] = useState<number>(() => Date.now());
   const [stateDurationSec, setStateDurationSec] = useState<number>(0);
@@ -112,52 +113,67 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Hands Coming Together Trigger Handler -> Starts Orb Appearance & Formation
-  const handleHandsTogether = useCallback(() => {
+  // Central release trigger: starts dissolution of work tabs into particles
+  const handleStartRelease = useCallback((reasonDesc: string = 'Release gesture') => {
     initAudio();
     setState((currentState) => {
-      if (currentState === 'INITIAL_WORK_TABS') {
-        soundSynthesizer.playClapAcknowledge();
+      if (currentState === 'WORK_TABS' || currentState === 'INITIAL_WORK_TABS') {
+        soundSynthesizer.playSwipeSound();
         const now = new Date();
         const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-        console.log(`[STATE TRANSITION] INITIAL_WORK_TABS -> ORB_FORMATION | Reason: Hands coming together recognized | Time: ${timeStr}`);
-        setPreviousState('INITIAL_WORK_TABS');
+        console.log(`[STATE TRANSITION] ${currentState} -> SWIPES_TO_RELEASE | Reason: ${reasonDesc} | Time: ${timeStr}`);
+        setPreviousState(currentState);
         setStateEnteredAt(Date.now());
         setStateDurationSec(0);
-        setLastTransitionReason('Hands coming together gesture recognized');
+        setLastTransitionReason(reasonDesc);
         setTransitionLogs((prev) => [
-          { from: 'INITIAL_WORK_TABS', to: 'ORB_FORMATION', reason: 'Hands coming together gesture recognized', timestamp: timeStr },
+          { from: currentState, to: 'SWIPES_TO_RELEASE', reason: reasonDesc, timestamp: timeStr },
           ...prev.slice(0, 24),
         ]);
-        return 'ORB_FORMATION';
+        return 'SWIPES_TO_RELEASE';
       }
       return currentState;
     });
   }, []);
 
-  // Priority 3: Pinch and Horizontal Slide return handler
+  // Hands Coming Together Trigger Handler -> Starts Release
+  const handleHandsTogether = useCallback(() => {
+    handleStartRelease('Hands coming together gesture recognized');
+  }, [handleStartRelease]);
+
+  // Swipe gesture or pinch-and-horizontal slide return handler
   const handleSwipeReturn = useCallback((reasonDesc: string = 'horizontal gesture') => {
     initAudio();
     setState((curr) => {
-      if (
+      if (curr === 'WORK_TABS' || curr === 'INITIAL_WORK_TABS') {
+        soundSynthesizer.playSwipeSound();
+        setPreviousState(curr);
+        setStateEnteredAt(Date.now());
+        setStateDurationSec(0);
+        setLastTransitionReason(reasonDesc);
+        return 'SWIPES_TO_RELEASE';
+      } else if (
+        curr === 'ORB_FREE_PLAY' ||
         curr === 'ORB_RELEASED' ||
         curr === 'ORB_HELD' ||
         curr === 'ORB_GRABBED' ||
         curr === 'ORB_IN_FLIGHT' ||
-        curr === 'ORB_CAUGHT'
+        curr === 'ORB_CAUGHT' ||
+        curr === 'BLACK_THREADS_DISSOLVE' ||
+        curr === 'CALM_RELEASE'
       ) {
         const now = new Date();
         const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-        console.log(`[STATE TRANSITION] ${curr} -> ORB_DOCKING | Reason: ${reasonDesc} | Time: ${timeStr}`);
+        console.log(`[STATE TRANSITION] ${curr} -> DOCKING_FLIGHT | Reason: ${reasonDesc} | Time: ${timeStr}`);
         setPreviousState(curr);
         setStateEnteredAt(Date.now());
         setStateDurationSec(0);
         setLastTransitionReason(reasonDesc);
         setTransitionLogs((prev) => [
-          { from: curr, to: 'ORB_DOCKING', reason: reasonDesc, timestamp: timeStr },
+          { from: curr, to: 'DOCKING_FLIGHT', reason: reasonDesc, timestamp: timeStr },
           ...prev.slice(0, 24),
         ]);
-        return 'ORB_DOCKING';
+        return 'DOCKING_FLIGHT';
       }
       return curr;
     });
@@ -255,6 +271,7 @@ export default function App() {
   const simulateFlick = useCallback(() => {
     initAudio();
     if (
+      state === 'ORB_FREE_PLAY' ||
       state === 'ORB_RELEASED' ||
       state === 'ORB_HELD' ||
       state === 'ORB_GRABBED' ||
@@ -294,9 +311,9 @@ export default function App() {
     };
   }, []);
 
-  // Priority 1: Stable Transition to TAB_DISSOLUTION once all tabs have entered the orb
+  // Stable Transition to DISSOLUTION once all tabs have entered the orb / dissolved
   const handleAllTabsAbsorbed = useCallback(() => {
-    transitionState('TAB_DISSOLUTION', 'All work tabs entered orb');
+    transitionState('DISSOLUTION', 'All work tabs dissolved into light particles inside orb');
   }, [transitionState]);
 
   // Tab progress handler for telemetry
@@ -306,15 +323,14 @@ export default function App() {
 
   const simulateClap = () => {
     initAudio();
-    if (state === 'INITIAL_WORK_TABS') {
-      soundSynthesizer.playClapAcknowledge();
-      transitionState('ORB_FORMATION', 'Simulate Hands Together button clicked');
+    if (state === 'WORK_TABS' || state === 'INITIAL_WORK_TABS') {
+      handleStartRelease('Simulate Hands Together button clicked');
     }
   };
 
   const simulateGrab = () => {
     initAudio();
-    if (state === 'ORB_RELEASED') {
+    if (state === 'ORB_FREE_PLAY' || state === 'ORB_RELEASED') {
       soundSynthesizer.playGrabChime();
       transitionState('ORB_HELD', 'Simulate Grab button clicked');
     }
@@ -326,7 +342,7 @@ export default function App() {
     setIsDockHovered(false);
     setIsGrabbingFromHand(false);
     setTabProgress({ remaining: 6, total: 6, isComplete: false });
-    transitionState('INITIAL_WORK_TABS', 'Experience reset');
+    transitionState('WORK_TABS', 'Experience reset');
   };
 
   const toggleMute = () => {
@@ -376,13 +392,29 @@ export default function App() {
         encouragementText={encouragementText}
       />
 
-      {/* Layer 5: Golden Thread Encouragement Handwriting */}
+      {/* Layer 5: Stage 2 Personalised Accomplishments & Golden Encouragement Handwriting */}
       <EncouragementDisplay
         state={state}
         text={encouragementText}
+        onAdvanceFromAccomplishments={() => {
+          initAudio();
+          transitionState('ACCOMPLISHMENTS_DISSOLVE', 'User clicked Continue on accomplishments');
+        }}
       />
 
-      {/* Layer 6: Minimal HUD & Fallback Interaction Controls */}
+      {/* Layer 5.5: Stage 3 Edible Film Printing & Closing Takeaway Ritual */}
+      <EdibleFilmTakeaway
+        state={state}
+        dockPosition={DOCK_POSITION}
+        hands={hands}
+        onChoiceSelected={(choice) => {
+          initAudio();
+          transitionState('CLOSURE_COMPLETE', `Takeaway selected: ${choice}`);
+        }}
+        onRestart={resetExperience}
+      />
+
+      {/* Layer 6: Minimal HUD & 3-Stage Progress Navigation */}
       <ControlsOverlay
         state={state}
         isMuted={isMuted}
@@ -397,7 +429,13 @@ export default function App() {
         onRequestEnableCamera={requestEnableCamera}
         onSimulateClap={simulateClap}
         onSimulateGrab={simulateGrab}
-        onSimulateSwipe={() => handleSwipeReturn('Pinch-and-slide manual button')}
+        onSimulateSwipe={() => {
+          if (state === 'WORK_TABS' || state === 'INITIAL_WORK_TABS') {
+            handleStartRelease('Swipe across work interfaces');
+          } else {
+            handleSwipeReturn('Pinch-and-slide manual button');
+          }
+        }}
         onSimulatePickupFromDock={simulatePickupFromDock}
         onSimulateToss={simulateFlick}
         onSimulateFlick={simulateFlick}
@@ -405,6 +443,20 @@ export default function App() {
         onJumpToState={(targetState) => {
           initAudio();
           transitionState(targetState, `Jumped via Dev Tray to ${targetState}`);
+        }}
+        onAdvanceFromAccomplishments={() => {
+          initAudio();
+          transitionState('ACCOMPLISHMENTS_DISSOLVE', 'User clicked Continue on accomplishments');
+        }}
+        onTakeawayWater={() => {
+          initAudio();
+          soundSynthesizer.playWaterDissolve();
+          transitionState('CLOSURE_COMPLETE', 'Dissolve in water selected');
+        }}
+        onTakeawayEat={() => {
+          initAudio();
+          soundSynthesizer.playEdibleConsume();
+          transitionState('CLOSURE_COMPLETE', 'Eat edible film selected');
         }}
       />
 

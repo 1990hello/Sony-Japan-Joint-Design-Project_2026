@@ -249,38 +249,51 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    if (state === 'ORB_FORMATION') {
+    if (state === 'SWIPES_TO_RELEASE' || state === 'WORK_INTERFACES_DISSOLVING') {
+      soundSynthesizer.playSwipeSound();
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'SWIPES_TO_RELEASE' || stateRef.current === 'WORK_INTERFACES_DISSOLVING') {
+          onStateChange('ORB_FORMATION', 'Swipe initiated; start orb formation above dock');
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    } else if (state === 'ORB_FORMATION' || state === 'ORB_FORMING') {
       formationProgressRef.current = 0;
       soundSynthesizer.playOrbFormation();
 
       // Safe fallback timer: ensures formation always completes within 2.5s
       const timer = setTimeout(() => {
-        if (stateRef.current === 'ORB_FORMATION') {
-          onStateChange('TAB_TRANSFER', 'Orb formation around scattered tabs completed (timer)');
+        if (stateRef.current === 'ORB_FORMATION' || stateRef.current === 'ORB_FORMING') {
+          onStateChange('ABSORB_TRANSFER', 'Orb formed above dock projector ring; start absorbing tabs');
         }
       }, 2500);
       return () => clearTimeout(timer);
-    } else if (state === 'TAB_TRANSFER') {
+    } else if (state === 'ABSORB_TRANSFER' || state === 'TAB_TRANSFER') {
       contractingProgressRef.current = 0;
-      // Priority 1: Stage 3 Absorb Watchdog Fallback
-      // Guarantees progression after 4.5s even if tab absorption triggers are delayed
+      // Watchdog timer: guarantees progression if tab absorption is delayed
       const timer = setTimeout(() => {
-        if (stateRef.current === 'TAB_TRANSFER') {
-          console.log('[OrbCanvas] Stage 3 Absorb watchdog fallback transitioning to TAB_DISSOLUTION');
-          onStateChange('TAB_DISSOLUTION', 'Stage 3 Absorb watchdog timer (4.5s)');
+        if (stateRef.current === 'ABSORB_TRANSFER' || stateRef.current === 'TAB_TRANSFER') {
+          onStateChange('DISSOLUTION', 'Absorb transfer watchdog fallback (4.0s)');
         }
-      }, 4500);
+      }, 4000);
       return () => clearTimeout(timer);
-    } else if (state === 'TAB_DISSOLUTION') {
+    } else if (state === 'DISSOLUTION' || state === 'TAB_DISSOLUTION') {
       soundSynthesizer.playDissolution();
-      // Tabs progressively dissolve into internal stardust particles and filaments
       const timer = setTimeout(() => {
-        if (stateRef.current === 'TAB_DISSOLUTION') {
-          onStateChange('BLACK_THREADS', 'Tab dissolution completed into filaments');
+        if (stateRef.current === 'DISSOLUTION' || stateRef.current === 'TAB_DISSOLUTION') {
+          onStateChange('FLOOR_MIST', 'Tab dissolution completed into filaments; start floor mist');
         }
-      }, 3000);
+      }, 2500);
       return () => clearTimeout(timer);
-    } else if (state === 'BLACK_THREADS') {
+    } else if (state === 'FLOOR_MIST' || state === 'ATMOSPHERE_TRANSITION') {
+      soundSynthesizer.playMistDrone();
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'FLOOR_MIST' || stateRef.current === 'ATMOSPHERE_TRANSITION') {
+          onStateChange('BLACK_THREADS', 'Floor mist established; work concerns emerge');
+        }
+      }, 2500);
+      return () => clearTimeout(timer);
+    } else if (state === 'BLACK_THREADS' || state === 'BLACK_THREADS_APPEAR') {
       soundSynthesizer.playBlackThreads();
 
       const orbX = orbPosRef.current.x || w * 0.5;
@@ -313,19 +326,63 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       blackThreadsRef.current = threads;
 
       const timer = setTimeout(() => {
-        if (stateRef.current === 'BLACK_THREADS') {
-          onStateChange('GOLDEN_THREADS', 'Black threads anchored');
+        if (stateRef.current === 'BLACK_THREADS' || stateRef.current === 'BLACK_THREADS_APPEAR') {
+          onStateChange('ACCOMPLISHMENTS', 'Black threads anchored; reveal accomplishments');
         }
       }, 2400);
       return () => clearTimeout(timer);
-    } else if (state === 'GOLDEN_THREADS') {
+    } else if (state === 'ACCOMPLISHMENTS' || state === 'ACCOMPLISHMENTS_REVEAL') {
+      soundSynthesizer.playAccomplishmentsChime();
+      // Keep accomplishments readable for 7.5 seconds before dissolving, or user can click Continue
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'ACCOMPLISHMENTS' || stateRef.current === 'ACCOMPLISHMENTS_REVEAL') {
+          onStateChange('ACCOMPLISHMENTS_DISSOLVE', 'Accomplishments time elapsed, dissolving');
+        }
+      }, 7500);
+      return () => clearTimeout(timer);
+    } else if (state === 'ACCOMPLISHMENTS_DISSOLVE') {
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'ACCOMPLISHMENTS_DISSOLVE') {
+          onStateChange('GOLDEN_ENCOURAGEMENT', 'Accomplishments dissolved; golden threads weave encouragement');
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    } else if (state === 'GOLDEN_ENCOURAGEMENT' || state === 'ENCOURAGEMENT' || state === 'GOLDEN_THREADS') {
       soundSynthesizer.playGoldenThreads();
 
-      // Speak encouraging message with guaranteed fallback completion
-      soundSynthesizer.speakEncouragement(encouragementText, () => {
-        startThreadDissolution();
+      // Read aloud the encouragement voice
+      const encouragementMsg =
+        "You've put in so much effort, and it really shows. Take a moment to be proud — you've done more than you think.";
+      soundSynthesizer.speakEncouragement(encouragementMsg, () => {
+        setTimeout(() => {
+          if (
+            stateRef.current === 'GOLDEN_ENCOURAGEMENT' ||
+            stateRef.current === 'ENCOURAGEMENT' ||
+            stateRef.current === 'GOLDEN_THREADS'
+          ) {
+            onStateChange('CALM_RELEASE', 'Speech completed; easing tension');
+          }
+        }, 1000);
       });
-    } else if (state === 'ORB_DOCKING') {
+    } else if (state === 'CALM_RELEASE') {
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'CALM_RELEASE') {
+          onStateChange('THREAD_DISSOLUTION', 'Calm established; dissolving black threads');
+        }
+      }, 2600);
+      return () => clearTimeout(timer);
+    } else if (state === 'THREAD_DISSOLUTION' || state === 'BLACK_THREADS_DISSOLVE') {
+      // Golden threads interact with black threads, dissolving them sequentially
+      startThreadDissolution(() => {
+        // Fix 2: MUST enter explicit ORB_FREE_PLAY! Do not auto-dock!
+        onStateChange('ORB_FREE_PLAY', 'Threads dissolved; orb untethered and free to play');
+      });
+    } else if (state === 'ORB_FREE_PLAY' || state === 'ORB_RELEASED') {
+      // Fix 2: Explicit Orb Free Play!
+      // Orb floats freely, user can hold, flick, toss, bounce.
+      // NO auto-dock timer! Awaits user deliberate horizontal wave or swipe.
+      dockFlightRef.current = null;
+    } else if (state === 'DOCKING_FLIGHT' || state === 'ORB_DOCKING' || state === 'ORB_RETURNING_TO_DOCK') {
       soundSynthesizer.playSwipePulse();
       swipeShimmerRef.current = 1.0;
       orbVelRef.current = { vx: 0, vy: 0 };
@@ -342,7 +399,53 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         startTime: performance.now(),
         duration: 1.1,
       };
-    } else if (state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING') {
+
+      // Fix 2: Transition to DOCKED_IDLE only after flight visibly completes
+      const timer = setTimeout(() => {
+        if (
+          stateRef.current === 'DOCKING_FLIGHT' ||
+          stateRef.current === 'ORB_DOCKING' ||
+          stateRef.current === 'ORB_RETURNING_TO_DOCK'
+        ) {
+          onStateChange('DOCKED_IDLE', 'Orb visibly arrived and settled in docking cradle');
+        }
+      }, 1150);
+      return () => clearTimeout(timer);
+    } else if (state === 'DOCKED_IDLE' || state === 'IDLE') {
+      // Fix 2: Orb resting in dock cradle.
+      // Transition to WISDOM_QUOTE only after confirmed DOCKED_IDLE and brief 1.0s settle pause.
+      dockFlightRef.current = null;
+      orbVelRef.current = { vx: 0, vy: 0 };
+      orbPosRef.current = { x: w * dockX, y: h * dockY };
+      orbTargetPosRef.current = { x: w * dockX, y: h * dockY };
+
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'DOCKED_IDLE' || stateRef.current === 'IDLE') {
+          onStateChange('WISDOM_QUOTE', 'Orb settled in dock; presenting wisdom quote');
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (state === 'WISDOM_QUOTE' || state === 'QUOTE_PRESENTATION') {
+      soundSynthesizer.speakQuote("A calmer mind creates a brighter tomorrow.", () => {
+        setTimeout(() => {
+          if (stateRef.current === 'WISDOM_QUOTE' || stateRef.current === 'QUOTE_PRESENTATION') {
+            onStateChange('PRINT_EDIBLE_FILM', 'Wisdom quote spoken; dock printing edible film');
+          }
+        }, 1200);
+      });
+    } else if (state === 'PRINT_EDIBLE_FILM' || state === 'EDIBLE_FILM_PRINTING') {
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'PRINT_EDIBLE_FILM' || stateRef.current === 'EDIBLE_FILM_PRINTING') {
+          onStateChange('TAKEAWAY_CHOICE', 'Edible film printed; presenting closing takeaway ritual');
+        }
+      }, 3400);
+      return () => clearTimeout(timer);
+    } else if (
+      state === 'TAKEAWAY_CHOICE' ||
+      state === 'CLOSURE_COMPLETE' ||
+      state === 'FOOTSTEPS_APPEARING' ||
+      state === 'FOOTSTEPS_GUIDING'
+    ) {
       dockFlightRef.current = null;
       orbVelRef.current = { vx: 0, vy: 0 };
       orbPosRef.current = { x: w * dockX, y: h * dockY };
@@ -351,7 +454,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   }, [state, encouragementText, dockX, dockY, onStateChange]);
 
   // Dissolve black threads sequentially with golden sparkles
-  const startThreadDissolution = () => {
+  const startThreadDissolution = (onComplete?: () => void) => {
     let threadIdx = 0;
     const interval = setInterval(() => {
       if (threadIdx < blackThreadsRef.current.length) {
@@ -374,10 +477,14 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         clearInterval(interval);
         setTimeout(() => {
           blackThreadsRef.current = [];
-          onStateChange('ORB_RELEASED', 'Threads dissolved; orb untethered');
-        }, 1500);
+          if (onComplete) {
+            onComplete();
+          } else {
+            onStateChange('ORB_RETURNING_TO_DOCK', 'Threads dissolved; orb untethered');
+          }
+        }, 1200);
       }
-    }, 400);
+    }, 350);
   };
 
   // Wall Collision Event: Spawns glowing ripple ring and impact sparks
@@ -841,11 +948,22 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       // --- RENDER FIREWOOD CRADLE (DOCKING STATION) REAR LAYER ---
       const dockPx = { x: w * dockX, y: h * dockY };
       const isDocked =
+        currentState === 'DOCKED_IDLE' ||
         currentState === 'IDLE' ||
+        currentState === 'WISDOM_QUOTE' ||
+        currentState === 'QUOTE_PRESENTATION' ||
+        currentState === 'PRINT_EDIBLE_FILM' ||
+        currentState === 'EDIBLE_FILM_PRINTING' ||
+        currentState === 'TAKEAWAY_CHOICE' ||
+        currentState === 'CLOSURE_COMPLETE' ||
         currentState === 'FOOTSTEPS_APPEARING' ||
         currentState === 'FOOTSTEPS_GUIDING';
       const distToDock = Math.hypot(currentOrbX - dockPx.x, currentOrbY - dockPx.y);
-      const isDockHovered = distToDock < 140 || currentState === 'ORB_DOCKING';
+      const isDockHovered =
+        distToDock < 140 ||
+        currentState === 'DOCKING_FLIGHT' ||
+        currentState === 'ORB_DOCKING' ||
+        currentState === 'ORB_RETURNING_TO_DOCK';
 
       // Update Firewood Cradle particles (sparks, smoke)
       cradleManagerRef.current.update(dockPx.x, dockPx.y, dt, isDocked, t);
@@ -854,14 +972,18 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       cradleManagerRef.current.renderBack(ctx, dockPx.x, dockPx.y, isDocked, isDockHovered, t);
 
       // --- RENDER HOLOGRAPHIC ORB ---
-      if (currentState === 'INITIAL_WORK_TABS') {
-        // Orb must be completely invisible until hands-together gesture is detected
+      if (currentState === 'WORK_TABS' || currentState === 'INITIAL_WORK_TABS') {
+        // Orb must be completely invisible until swipe begins formation
         formationProgressRef.current = 0;
-      } else if (currentState === 'ORB_FORMATION') {
+      } else if (
+        currentState === 'SWIPES_TO_RELEASE' ||
+        currentState === 'ORB_FORMATION' ||
+        currentState === 'ORB_FORMING'
+      ) {
         formationProgressRef.current = Math.min(1, formationProgressRef.current + 0.007);
         renderEnclosingOrbFormation(ctx, currentOrbX, currentOrbY, formationProgressRef.current, t);
         if (formationProgressRef.current >= 1) {
-          onStateChange('TAB_TRANSFER', 'Orb formed around scattered tabs (animation complete)');
+          onStateChange('ABSORB_TRANSFER', 'Orb formed above dock (animation complete); start absorbing tabs');
         }
       } else {
         // Translucent glass orb with intricate flowing golden-white energy lines
