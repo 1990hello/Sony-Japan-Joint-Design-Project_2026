@@ -245,13 +245,22 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
           stepNum: '3.5',
           title: 'Wisdom Quote',
           instruction: '“A calmer mind creates a brighter tomorrow.” Spoken aloud and presented on dock...',
+          actionLabel: 'Reveal Footsteps',
+          onAction: () => onJumpToState('FOOTSTEPS_APPEARING'),
+        };
+      case 'FOOTSTEPS_APPEARING':
+      case 'FOOTSTEPS_GUIDING':
+        return {
+          stepNum: '3.6',
+          title: 'Footstep Guide to Door',
+          instruction: 'Glowing footprints awaken along bedroom floor leading toward the doorway...',
           actionLabel: 'Print Edible Film',
           onAction: () => onJumpToState('PRINT_EDIBLE_FILM'),
         };
       case 'PRINT_EDIBLE_FILM':
       case 'EDIBLE_FILM_PRINTING':
         return {
-          stepNum: '3.6',
+          stepNum: '3.7',
           title: 'Print Edible Film',
           instruction: 'Dock physically prints wisdom quote onto translucent edible film sheet...',
           actionLabel: 'Proceed to Choice',
@@ -259,19 +268,17 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
         };
       case 'TAKEAWAY_CHOICE':
         return {
-          stepNum: '3.7',
+          stepNum: '3.8',
           title: 'Takeaway Ritual Choice',
-          instruction: 'Pinch film twice to eat, or drag it into the water glass on desk to dissolve.',
+          instruction: 'Pinch film to pick up: hold still to consume, or drag to water cup on desk to dissolve.',
           actionLabel: 'Dissolve in Water',
           onAction: onTakeawayWater || (() => onJumpToState('CLOSURE_COMPLETE')),
-          altActionLabel: 'Eat Edible Film (2 Pinches)',
+          altActionLabel: 'Eat Edible Film',
           onAltAction: onTakeawayEat || (() => onJumpToState('CLOSURE_COMPLETE')),
         };
       case 'CLOSURE_COMPLETE':
-      case 'FOOTSTEPS_GUIDING':
-      case 'FOOTSTEPS_APPEARING':
         return {
-          stepNum: '3.8',
+          stepNum: '3.9',
           title: 'Closure Complete',
           instruction: '“You’ve done enough. Now it’s your time.” Ritual finished. Enjoy your personal evening.',
           actionLabel: 'Experience Again',
@@ -513,68 +520,76 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
               3.5 Wisdom Quote
             </button>
             <button
+              onClick={() => onJumpToState('FOOTSTEPS_APPEARING')}
+              className="px-2.5 py-1.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 text-left border border-amber-300/30 truncate cursor-pointer font-semibold"
+            >
+              3.6 Footstep Trail
+            </button>
+            <button
               onClick={() => onJumpToState('PRINT_EDIBLE_FILM')}
               className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
             >
-              3.6 Print Edible Film
+              3.7 Print Edible Film
             </button>
             <button
               onClick={() => onJumpToState('TAKEAWAY_CHOICE')}
               className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-left border border-white/5 truncate cursor-pointer"
             >
-              3.7 Takeaway Choice
+              3.8 Takeaway Choice
             </button>
             <button
               onClick={() => onJumpToState('CLOSURE_COMPLETE')}
               className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-left border border-amber-300/30 truncate cursor-pointer"
             >
-              3.8 Closure Complete
+              3.9 Closure Complete
             </button>
           </div>
         </div>
       )}
 
-      {/* Bottom Guidance Card & Primary Fallback Action Button */}
-      <footer className="w-full max-w-xl mx-auto pointer-events-auto">
-        <div className="p-4 md:p-5 rounded-2xl bg-slate-950/85 border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          {/* Step Indicator & Human Text */}
-          <div className="flex-1 text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-              <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-mono text-[10px] border border-amber-300/30">
-                Step {guidance.stepNum}
-              </span>
-              <span className="text-xs font-semibold text-slate-200">
-                {guidance.title}
-              </span>
+      {/* Bottom Guidance Card & Primary Fallback Action Button (Suppressed in stages 3.8 and 3.9 to remove unwanted foreground tabs) */}
+      {state !== 'TAKEAWAY_CHOICE' && state !== 'CLOSURE_COMPLETE' && (
+        <footer className="w-full max-w-xl mx-auto pointer-events-auto">
+          <div className="p-4 md:p-5 rounded-2xl bg-slate-950/85 border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Step Indicator & Human Text */}
+            <div className="flex-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-mono text-[10px] border border-amber-300/30">
+                  Step {guidance.stepNum}
+                </span>
+                <span className="text-xs font-semibold text-slate-200">
+                  {guidance.title}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-md">
+                {guidance.instruction}
+              </p>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-md">
-              {guidance.instruction}
-            </p>
-          </div>
 
-          {/* Action Affordances */}
-          <div className="flex items-center gap-2 shrink-0">
-            {guidance.actionLabel && (
-              <button
-                onClick={guidance.onAction}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-semibold tracking-wide flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:scale-102 cursor-pointer"
-              >
-                <span>{guidance.actionLabel}</span>
-                <Play className="w-3 h-3 fill-current" />
-              </button>
-            )}
+            {/* Action Affordances */}
+            <div className="flex items-center gap-2 shrink-0">
+              {guidance.actionLabel && (
+                <button
+                  onClick={guidance.onAction}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-semibold tracking-wide flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:scale-102 cursor-pointer"
+                >
+                  <span>{guidance.actionLabel}</span>
+                  <Play className="w-3 h-3 fill-current" />
+                </button>
+              )}
 
-            {guidance.altActionLabel && (
-              <button
-                onClick={guidance.altActionLabel ? guidance.onAltAction : undefined}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 text-slate-300 text-xs font-medium transition-all cursor-pointer"
-              >
-                {guidance.altActionLabel}
-              </button>
-            )}
+              {guidance.altActionLabel && (
+                <button
+                  onClick={guidance.altActionLabel ? guidance.onAltAction : undefined}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 text-slate-300 text-xs font-medium transition-all cursor-pointer"
+                >
+                  {guidance.altActionLabel}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 };

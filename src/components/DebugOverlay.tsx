@@ -49,16 +49,7 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
   const [activeTab, setActiveTab] = useState<'state' | 'absorb' | 'hands' | 'logs'>('state');
 
   if (!isOpen) {
-    return (
-      <button
-        onClick={onToggle}
-        className="fixed bottom-4 left-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/85 hover:bg-slate-800 text-amber-300 text-xs font-mono border border-amber-400/30 backdrop-blur-md shadow-xl transition-all cursor-pointer pointer-events-auto"
-        title="Open Diagnostic & State Transition Debugger (Press 'D')"
-      >
-        <Bug className="w-3.5 h-3.5 text-amber-400" />
-        <span>Debug HUD [{currentState}]</span>
-      </button>
-    );
+    return null;
   }
 
   // Determine transition criteria for the current state
@@ -211,9 +202,25 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
         return {
           condition: 'Voice speaks wisdom quote: "A calmer mind creates a brighter tomorrow"',
           met: stateDurationSec >= 4.5,
-          next: 'PRINT_EDIBLE_FILM',
+          next: 'FOOTSTEPS_APPEARING',
           auto: true,
           waitingReason: 'Presenting and speaking wisdom quote',
+        };
+      case 'FOOTSTEPS_APPEARING':
+        return {
+          condition: 'Footsteps materializing towards doorway (5.0s)',
+          met: stateDurationSec >= 5.0,
+          next: 'PRINT_EDIBLE_FILM',
+          auto: true,
+          waitingReason: 'Footsteps sequencing towards bedroom door',
+        };
+      case 'FOOTSTEPS_GUIDING':
+        return {
+          condition: 'Footsteps softly pulsing on floor guiding toward door',
+          met: isGrabbingFromHand,
+          next: 'PRINT_EDIBLE_FILM',
+          auto: true,
+          waitingReason: 'Peaceful guidance active on floor',
         };
       case 'PRINT_EDIBLE_FILM':
       case 'EDIBLE_FILM_PRINTING':
@@ -226,7 +233,7 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
         };
       case 'TAKEAWAY_CHOICE':
         return {
-          condition: 'Choice A: 2 pinches to eat | Choice B: Pinch & drag to water cup',
+          condition: 'Option A: Hold stationary to consume | Option B: Pinch & drag to water cup',
           met: false,
           next: 'CLOSURE_COMPLETE',
           auto: false,
@@ -239,22 +246,6 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
           next: 'None (Final Stage)',
           auto: false,
           waitingReason: 'Work-to-personal transition complete. Enjoy your evening.',
-        };
-      case 'FOOTSTEPS_APPEARING':
-        return {
-          condition: 'Footsteps materializing towards doorway',
-          met: stateDurationSec >= 5.0,
-          next: 'FOOTSTEPS_GUIDING',
-          auto: true,
-          waitingReason: 'Footsteps sequencing towards bedroom door',
-        };
-      case 'FOOTSTEPS_GUIDING':
-        return {
-          condition: 'Footsteps softly pulsing on floor. Pick up orb anytime or rest.',
-          met: isGrabbingFromHand,
-          next: 'ORB_HELD (optional pickup)',
-          auto: false,
-          waitingReason: 'Peaceful guidance active. No forced action required.',
         };
       default:
         return { condition: 'None', met: false, next: 'None', auto: false, waitingReason: 'Active' };
@@ -476,22 +467,28 @@ export const DebugOverlay: React.FC<DebugOverlayProps> = ({
                   3.5 Wisdom Quote
                 </button>
                 <button
+                  onClick={() => onTriggerState('FOOTSTEPS_APPEARING', 'Manual debug override')}
+                  className="px-2 py-1 rounded bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/30 text-amber-200 text-left truncate cursor-pointer text-[10px]"
+                >
+                  3.6 Footstep Trail
+                </button>
+                <button
                   onClick={() => onTriggerState('PRINT_EDIBLE_FILM', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-left truncate cursor-pointer text-[10px]"
                 >
-                  3.6 Print Film
+                  3.7 Print Film
                 </button>
                 <button
                   onClick={() => onTriggerState('TAKEAWAY_CHOICE', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-200 text-left truncate cursor-pointer text-[10px] font-semibold"
                 >
-                  3.7 Takeaway Choice
+                  3.8 Takeaway Choice
                 </button>
                 <button
                   onClick={() => onTriggerState('CLOSURE_COMPLETE', 'Manual debug override')}
                   className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 text-left truncate cursor-pointer text-[10px] font-semibold"
                 >
-                  3.8 Closure Complete
+                  3.9 Closure Complete
                 </button>
               </div>
             </div>

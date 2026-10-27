@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ExperienceState, HandData } from '../types';
 import { soundSynthesizer } from '../services/soundSynthesizer';
-import { Sparkles, Droplets, Utensils, RotateCcw, Heart, Move, Check } from 'lucide-react';
+import { Sparkles, Droplets, Utensils, RotateCcw, Heart, Check, Move } from 'lucide-react';
 
 interface EdibleFilmTakeawayProps {
   state: ExperienceState;
@@ -23,21 +23,24 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
   const [isDissolvingInGlass, setIsDissolvingInGlass] = useState<boolean>(false);
   const [isConsumed, setIsConsumed] = useState<boolean>(false);
 
-  // Gesture state for Option A (Two Pinches) and Option B (Drag to Cup)
-  const [pinchCount, setPinchCount] = useState<number>(0); // 0 = unselected, 1 = selected, 2 = confirmed eating
-  const [isFilmSelected, setIsFilmSelected] = useState<boolean>(false);
+  // Interaction State (Shared Pickup -> Option A: Hold to Eat | Option B: Drag to Cup)
+  const [isHoldingFilm, setIsHoldingFilm] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isStationaryHeld, setIsStationaryHeld] = useState<boolean>(false);
+  const [isHoveringCup, setIsHoveringCup] = useState<boolean>(false);
+  const [showEatConfirmation, setShowEatConfirmation] = useState<boolean>(false);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [gestureHint, setGestureHint] = useState<string>(
-    'Pinch film once to select, or pinch & drag to the cup of water'
+    'Pinch film to pick up: hold still to consume, or drag to the water glass'
   );
 
   const prevHandPinchingRef = useRef<boolean>(false);
-  const lastPinchTimeRef = useRef<number>(0);
-  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const grabStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const holdStartTimeRef = useRef<number>(0);
   const mouseDragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const isQuoteState = state === 'WISDOM_QUOTE' || state === 'QUOTE_PRESENTATION';
+  const isFootstepsState = state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING';
   const isPrintingState = state === 'PRINT_EDIBLE_FILM' || state === 'EDIBLE_FILM_PRINTING';
   const isChoiceState = state === 'TAKEAWAY_CHOICE';
   const isCompleteState = state === 'CLOSURE_COMPLETE';
@@ -67,9 +70,11 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
       setChosenOption(null);
       setIsDissolvingInGlass(false);
       setIsConsumed(false);
-      setPinchCount(0);
-      setIsFilmSelected(false);
+      setIsHoldingFilm(false);
       setIsDragging(false);
+      setIsStationaryHeld(false);
+      setIsHoveringCup(false);
+      setShowEatConfirmation(false);
       setDragOffset({ x: 0, y: 0 });
     }
   }, [state, isPrintingState, isChoiceState, isCompleteState]);
@@ -79,6 +84,8 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
     if (chosenOption) return;
     setChosenOption('eat');
     setIsConsumed(true);
+    setShowEatConfirmation(false);
+    setIsHoldingFilm(false);
     soundSynthesizer.playEdibleConsume();
     setGestureHint('Edible film consumed. Resting mind...');
     setTimeout(() => {
@@ -91,6 +98,8 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
     if (chosenOption) return;
     setChosenOption('water');
     setIsDissolvingInGlass(true);
+    setIsHoveringCup(false);
+    setIsHoldingFilm(false);
     soundSynthesizer.playWaterDissolve();
     setGestureHint('Film dissolving into evening nutrient elixir...');
     setTimeout(() => {
@@ -98,13 +107,20 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
     }, 1800);
   };
 
-  // Real Hand Tracking Gesture Recognizer (Fix 3: Two Pinches to Eat, or Drag to Cup)
+  // Real Hand Tracking Recognizer (Shared Pickup -> Context Sensitive Drag vs Stationary Eat)
   useEffect(() => {
     if (!isChoiceState || chosenOption) return;
 
-    // Check if any hand is detected
     const activeHand = hands[0];
     if (!activeHand) {
+      if (prevHandPinchingRef.current && isHoldingFilm) {
+        // Hand left view while holding: spring back
+        setIsHoldingFilm(false);
+        setIsDragging(false);
+        setIsStationaryHeld(false);
+        setIsHoveringCup(false);
+        setDragOffset({ x: 0, y: 0 });
+      }
       prevHandPinchingRef.current = false;
       return;
     }
@@ -114,7 +130,7 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
     const handY = activeHand.indexTip.y;
     const now = Date.now();
 
-    // Default film normalized position
+    // Default film normalized position on dock slot
     const filmDefaultX = dockPosition.x;
     const filmDefaultY = dockPosition.y + 0.08;
 
@@ -124,92 +140,110 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
 
     const distToFilm = Math.hypot(handX - currentFilmX, handY - currentFilmY);
 
-    // Hand starts pinching near film
+    // 1. Initial Pickup via Pinch
     if (isPinching && !prevHandPinchingRef.current) {
       if (distToFilm < 0.18) {
-        dragStartPosRef.current = { x: handX, y: handY };
-
-        // If not dragging yet, check if this is pinch #1 or pinch #2
-        if (pinchCount === 0) {
-          // Pinch 1: Pick up / Select film
-          setPinchCount(1);
-          setIsFilmSelected(true);
-          lastPinchTimeRef.current = now;
-          soundSynthesizer.playAccomplishmentsChime();
-          setGestureHint('Pinch 1 recognized: Film selected! Pinch again to eat, or drag to water cup.');
-        } else if (pinchCount === 1 && now - lastPinchTimeRef.current > 350) {
-          // Pinch 2: Confirmed eating (only if not currently dragging away)
-          if (!isDragging) {
-            setPinchCount(2);
-            triggerEat();
-            return;
-          }
-        }
+        setIsHoldingFilm(true);
+        grabStartPosRef.current = { x: handX, y: handY };
+        holdStartTimeRef.current = now;
+        soundSynthesizer.playAccomplishmentsChime();
+        setGestureHint('Film picked up! Hold still to consume, or drag to the water glass.');
       }
     }
 
-    // Hand is holding and moving (Pinch-and-drag towards cup)
-    if (isPinching && dragStartPosRef.current) {
-      const movedDist = Math.hypot(handX - dragStartPosRef.current.x, handY - dragStartPosRef.current.y);
-      if (movedDist > 0.04) {
+    // 2. Pinch Maintained: Track movement vs stationary hold
+    if (isPinching && grabStartPosRef.current && isHoldingFilm) {
+      const movedDist = Math.hypot(handX - grabStartPosRef.current.x, handY - grabStartPosRef.current.y);
+
+      if (movedDist > 0.038) {
+        // Meaningful drag: Prioritize drag over stationary hold eating
         setIsDragging(true);
-        // Prioritise drag over eating
+        setIsStationaryHeld(false);
+        setShowEatConfirmation(false);
+
         setDragOffset({
           x: (handX - filmDefaultX) * window.innerWidth,
           y: (handY - filmDefaultY) * window.innerHeight,
         });
 
         const distToCup = Math.hypot(handX - CUP_POS.x, handY - CUP_POS.y);
-        if (distToCup < 0.12) {
+        if (distToCup < 0.14) {
+          setIsHoveringCup(true);
           setGestureHint('Hovering over cup! Release pinch to dissolve in water.');
         } else {
-          setGestureHint('Dragging film towards cup of water on desk...');
+          setIsHoveringCup(false);
+          setGestureHint('Dragging film towards water cup on desk...');
+        }
+      } else {
+        // Stationary hold: User is holding the film relatively still
+        const holdDuration = now - holdStartTimeRef.current;
+        if (holdDuration >= 800) {
+          setIsStationaryHeld(true);
+          setGestureHint('Stationary hold recognized! Release pinch to confirm consumption.');
         }
       }
     }
 
-    // Hand releases pinch
-    if (!isPinching && prevHandPinchingRef.current) {
-      if (isDragging) {
-        // Check if released inside the cup's interaction area
-        const distToCup = Math.hypot(handX - CUP_POS.x, handY - CUP_POS.y);
-        if (distToCup < 0.13) {
-          triggerWaterDissolve();
-        } else {
-          // Dropped outside cup: keep film available and gently spring back
-          setIsDragging(false);
-          setDragOffset({ x: 0, y: 0 });
-          setGestureHint('Released outside cup. Drag into cup of water, or pinch twice to eat.');
-        }
-        dragStartPosRef.current = null;
+    // 3. Pinch Released: Determine context-sensitive outcome
+    if (!isPinching && prevHandPinchingRef.current && isHoldingFilm) {
+      if (isHoveringCup) {
+        // Option B: Released inside cup interaction zone -> Water dissolution
+        triggerWaterDissolve();
+      } else if (isStationaryHeld && !isDragging) {
+        // Option A: Released after deliberate stationary hold -> Prompt consumption confirmation
+        setShowEatConfirmation(true);
+        soundSynthesizer.playAccomplishmentsChime();
+        setGestureHint('Ready to consume. Tap Confirm Eat, or drag to water cup.');
+      } else {
+        // Dropped outside cup without stationary confirmation -> Return to slot
+        setIsDragging(false);
+        setIsHoldingFilm(false);
+        setIsStationaryHeld(false);
+        setIsHoveringCup(false);
+        setShowEatConfirmation(false);
+        setDragOffset({ x: 0, y: 0 });
+        setGestureHint('Released outside cup. Drag into water cup, or hold still to consume.');
       }
+      grabStartPosRef.current = null;
     }
 
     prevHandPinchingRef.current = isPinching;
-  }, [hands, isChoiceState, chosenOption, dockPosition, dragOffset, isDragging, pinchCount]);
+  }, [hands, isChoiceState, chosenOption, dockPosition, dragOffset, isDragging, isHoldingFilm, isStationaryHeld, isHoveringCup]);
 
-  // Mouse / Touch Fallback Handlers (Allows testing on desktop or click-and-drag)
+  // Mouse / Touch Fallback Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isChoiceState || chosenOption) return;
     mouseDragStartRef.current = { x: e.clientX, y: e.clientY };
+    setIsHoldingFilm(true);
+    holdStartTimeRef.current = Date.now();
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!mouseDragStartRef.current || !isChoiceState || chosenOption) return;
     const dx = e.clientX - mouseDragStartRef.current.x;
     const dy = e.clientY - mouseDragStartRef.current.y;
-    if (Math.hypot(dx, dy) > 10) {
+    const moved = Math.hypot(dx, dy);
+
+    if (moved > 14) {
       setIsDragging(true);
+      setIsStationaryHeld(false);
+      setShowEatConfirmation(false);
       setDragOffset({ x: dx, y: dy });
 
-      // Check distance to cup
       const cupScreenX = CUP_POS.x * window.innerWidth;
       const cupScreenY = CUP_POS.y * window.innerHeight;
       const dist = Math.hypot(e.clientX - cupScreenX, e.clientY - cupScreenY);
-      if (dist < 80) {
+
+      if (dist < 90) {
+        setIsHoveringCup(true);
         setGestureHint('Over water cup! Release to dissolve.');
       } else {
+        setIsHoveringCup(false);
         setGestureHint('Dragging to water glass on the desk...');
+      }
+    } else {
+      if (Date.now() - holdStartTimeRef.current >= 750) {
+        setIsStationaryHeld(true);
       }
     }
   };
@@ -220,37 +254,28 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
     const dy = e.clientY - mouseDragStartRef.current.y;
     const moved = Math.hypot(dx, dy);
 
-    if (moved > 25) {
-      // Drag attempt
-      const cupScreenX = CUP_POS.x * window.innerWidth;
-      const cupScreenY = CUP_POS.y * window.innerHeight;
-      const dist = Math.hypot(e.clientX - cupScreenX, e.clientY - cupScreenY);
+    const cupScreenX = CUP_POS.x * window.innerWidth;
+    const cupScreenY = CUP_POS.y * window.innerHeight;
+    const dist = Math.hypot(e.clientX - cupScreenX, e.clientY - cupScreenY);
 
-      if (dist < 90) {
-        triggerWaterDissolve();
-      } else {
-        setIsDragging(false);
-        setDragOffset({ x: 0, y: 0 });
-        setGestureHint('Released outside cup. Drag into cup, or pinch twice to eat.');
-      }
+    if (moved > 20 && dist < 95) {
+      triggerWaterDissolve();
+    } else if (isStationaryHeld || moved <= 10) {
+      setShowEatConfirmation(true);
+      soundSynthesizer.playAccomplishmentsChime();
+      setGestureHint('Ready to consume. Click Confirm Eat or drag to water cup.');
     } else {
-      // Click/Pinch attempt
-      const now = Date.now();
-      if (pinchCount === 0) {
-        setPinchCount(1);
-        setIsFilmSelected(true);
-        lastPinchTimeRef.current = now;
-        soundSynthesizer.playAccomplishmentsChime();
-        setGestureHint('Pinch 1 recognized: Film selected! Pinch again to confirm eating, or drag to cup.');
-      } else if (pinchCount === 1 && now - lastPinchTimeRef.current > 300) {
-        setPinchCount(2);
-        triggerEat();
-      }
+      setIsDragging(false);
+      setIsHoldingFilm(false);
+      setIsStationaryHeld(false);
+      setIsHoveringCup(false);
+      setDragOffset({ x: 0, y: 0 });
+      setGestureHint('Released outside cup. Drag into water cup, or hold still to consume.');
     }
     mouseDragStartRef.current = null;
   };
 
-  if (!isQuoteState && !isPrintingState && !isChoiceState && !isCompleteState) {
+  if (!isQuoteState && !isFootstepsState && !isPrintingState && !isChoiceState && !isCompleteState) {
     return null;
   }
 
@@ -259,7 +284,7 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
       {/* 1. Wisdom Quote Header (Spoken aloud and displayed near dock) */}
       <div
         className={`transition-all duration-1000 max-w-xl mx-auto mt-16 text-center ${
-          isQuoteState || isPrintingState || isChoiceState
+          isQuoteState || isFootstepsState || isPrintingState || isChoiceState
             ? 'opacity-100 translate-y-0'
             : 'opacity-0 -translate-y-4 pointer-events-none'
         }`}
@@ -276,6 +301,8 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
               ? 'Printing onto nutrient edible film from dock slot...'
               : isChoiceState
               ? 'Edible film printed and ready on dock.'
+              : isFootstepsState
+              ? 'Footsteps guiding your path to personal time...'
               : 'Wisdom presented.'}
           </div>
         </div>
@@ -300,7 +327,7 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
             left: `${dockPosition.x * 100}%`,
             top: `${(dockPosition.y + 0.08) * 100}%`,
             transform: `translate(calc(-50% + ${dragOffset.x}px), calc(-50% + ${dragOffset.y}px)) ${
-              isFilmSelected && !isDragging ? 'scale(1.08) translateY(-12px)' : ''
+              isHoldingFilm && !isDragging ? 'scale(1.06) translateY(-8px)' : ''
             }`,
             width: '230px',
             height: '145px',
@@ -309,8 +336,12 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
           {/* Film sheet animation emerging from horizontal slot */}
           <div
             className={`w-full h-full rounded-xl shadow-2xl p-3.5 flex flex-col justify-between border backdrop-blur-md transition-all duration-300 overflow-hidden ${
-              isFilmSelected
-                ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.5)]'
+              isHoveringCup
+                ? 'border-cyan-300 ring-4 ring-cyan-400/50 shadow-[0_0_40px_rgba(56,189,248,0.7)]'
+                : isStationaryHeld || showEatConfirmation
+                ? 'border-amber-300 ring-3 ring-amber-400/50 shadow-[0_0_35px_rgba(251,191,36,0.6)]'
+                : isHoldingFilm
+                ? 'border-amber-200 ring-2 ring-amber-300/40 shadow-[0_0_25px_rgba(251,191,36,0.4)]'
                 : 'border-amber-200/50'
             }`}
             style={{
@@ -323,8 +354,12 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
             {/* Watermark / Seal */}
             <div className="flex items-center justify-between text-[8px] text-amber-900/70 font-mono">
               <span className="tracking-widest uppercase font-semibold">EDIBLE MICRO-FILM</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-200/60 font-sans text-[7.5px]">
-                {isFilmSelected ? 'SELECTED · PINCH AGAIN TO EAT' : 'L-THEANINE & MAGNESIUM'}
+              <span className="px-1.5 py-0.5 rounded bg-amber-200/60 font-sans text-[7.5px] font-medium">
+                {isHoveringCup
+                  ? 'RELEASE TO DISSOLVE IN WATER'
+                  : isStationaryHeld || showEatConfirmation
+                  ? 'STATIONARY · READY TO CONSUME'
+                  : 'L-THEANINE & MAGNESIUM'}
               </span>
             </div>
 
@@ -342,11 +377,35 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
             </div>
           </div>
 
-          {/* Interactive Affordance Pill floating above film */}
-          {isChoiceState && !chosenOption && (
+          {/* Eat Confirmation Control (Shown only after deliberate stationary hold release) */}
+          {showEatConfirmation && !chosenOption && (
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap z-40 animate-in fade-in zoom-in-95">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerEat();
+                }}
+                className="px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-semibold shadow-[0_0_25px_rgba(251,191,36,0.5)] flex items-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Confirm: Eat Film</span>
+              </button>
+            </div>
+          )}
+
+          {/* Interactive Affordance Pill floating above film when unselected */}
+          {isChoiceState && !chosenOption && !showEatConfirmation && (
             <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-900/90 border border-amber-400/40 text-[9px] text-amber-200 shadow-lg flex items-center gap-1.5">
               <Move className="w-2.5 h-2.5 text-cyan-300" />
-              <span>{isFilmSelected ? 'Pinch again to Eat, or Drag to Cup' : 'Pinch or Drag Film'}</span>
+              <span>
+                {isHoveringCup
+                  ? 'Release to Dissolve in Water'
+                  : isStationaryHeld
+                  ? 'Release to Confirm Eating'
+                  : isDragging
+                  ? 'Dragging to Water Glass...'
+                  : 'Pinch to Pick Up Film'}
+              </span>
             </div>
           )}
         </div>
@@ -369,12 +428,12 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-2">
-              {/* Option A: Eat using two pinches */}
+              {/* Option A: Eat film */}
               <button
                 onClick={triggerEat}
                 className={`group relative p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all shadow-lg cursor-pointer ${
-                  pinchCount >= 1
-                    ? 'border-amber-300 bg-amber-500/20 shadow-[0_0_20px_rgba(251,191,36,0.3)]'
+                  showEatConfirmation
+                    ? 'border-amber-300 bg-amber-500/25 shadow-[0_0_20px_rgba(251,191,36,0.3)]'
                     : 'border-amber-400/30 bg-slate-800/80 hover:bg-slate-800 hover:border-amber-300'
                 }`}
               >
@@ -384,12 +443,10 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
                 <div>
                   <div className="text-xs font-medium text-slate-100 group-hover:text-amber-200 transition-colors flex items-center gap-1.5">
                     <span>Option A: Eat Edible Film</span>
-                    {pinchCount >= 1 && <Check className="w-3 h-3 text-amber-300" />}
+                    {showEatConfirmation && <Check className="w-3 h-3 text-amber-300" />}
                   </div>
                   <div className="text-[10px] text-slate-400 leading-relaxed mt-0.5">
-                    {pinchCount === 0
-                      ? 'Pinch once to select, pinch a second time to confirm eating.'
-                      : 'Pinch #1 confirmed! Click or pinch again to eat directly.'}
+                    Hold stationary in air, or click here to consume directly.
                   </div>
                 </div>
               </button>
@@ -397,7 +454,11 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
               {/* Option B: Dissolve in water */}
               <button
                 onClick={triggerWaterDissolve}
-                className="group relative p-3.5 rounded-xl border border-cyan-400/30 bg-slate-800/80 hover:bg-slate-800 hover:border-cyan-300 transition-all text-left flex items-start gap-3 shadow-lg cursor-pointer"
+                className={`group relative p-3.5 rounded-xl border transition-all text-left flex items-start gap-3 shadow-lg cursor-pointer ${
+                  isHoveringCup
+                    ? 'border-cyan-300 bg-cyan-500/25 shadow-[0_0_20px_rgba(56,189,248,0.4)]'
+                    : 'border-cyan-400/30 bg-slate-800/80 hover:bg-slate-800 hover:border-cyan-300'
+                }`}
               >
                 <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-400/20 text-cyan-300 group-hover:scale-105 transition-transform shrink-0">
                   <Droplets className="w-4 h-4" />
@@ -407,7 +468,7 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
                     Option B: Dissolve in Water
                   </div>
                   <div className="text-[10px] text-slate-400 leading-relaxed mt-0.5">
-                    Pinch and drag the film to the water glass on the desk to dissolve.
+                    Pinch and drag film into the water glass on desk to dissolve.
                   </div>
                 </div>
               </button>

@@ -13,6 +13,7 @@ export interface HandTrackerCallbacks {
   onGrabMove?: (x: number, y: number, handedness: 'Left' | 'Right') => void;
   onGrabEnd?: (x: number, y: number, vx: number, vy: number, handedness: 'Left' | 'Right') => void;
   onFlick?: (vx: number, vy: number, handedness: 'Left' | 'Right', speed: number) => void;
+  onOpenPalmSwipe?: (direction: 'left' | 'right', handedness: 'Left' | 'Right', palmPos: { x: number; y: number }) => void;
   onPinchSlideReturn?: (direction: 'left' | 'right', handedness: 'Left' | 'Right') => void;
   onSwipe?: (direction: 'left' | 'right') => void;
   onHandsUpdate?: (hands: HandData[]) => void;
@@ -53,10 +54,10 @@ export class HandTracker {
   // Multi-hand velocity & trajectory history (350ms window)
   private handHistories: Map<string, HandHistory> = new Map();
 
-  // Pinch-and-Horizontal-Slide return tracking
-  private pinchTrackers: Map<string, PinchTrackingState> = new Map();
-  private lastPinchSlideTime: number = 0;
-  private pinchSlideCooldown: number = 1100; // ms lockout
+  // Open-palm horizontal swipe return tracking (Replaces pinch-and-slide to prevent gesture conflict)
+  private openPalmSwipeTrackers: Map<string, { startX: number; startY: number; startTime: number; isActive: boolean }> = new Map();
+  private lastOpenPalmSwipeTime: number = 0;
+  private openPalmSwipeCooldown: number = 1300; // ms lockout
 
   // Open-palm flick detection & cooldown lockout
   private lastFlickTime: number = 0;
@@ -308,8 +309,8 @@ export class HandTracker {
     // 1. Hands Together Detection for Stage 1 initial trigger
     this.checkHandsTogether(this.smoothedHands);
 
-    // 2. Pinch + Horizontal Slide to return orb home
-    this.checkPinchSlideReturn(this.smoothedHands, now);
+    // 2. Open-Palm Horizontal Swipe to return orb to dock
+    this.checkOpenPalmHorizontalSwipe(this.smoothedHands, now);
 
     // 3. Open-Palm Flick to launch orb into free flight
     this.checkOpenPalmFlick(this.smoothedHands, now);
@@ -445,42 +446,49 @@ export class HandTracker {
   }
 
   /**
-   * Priority 3: Pinch and Horizontal Slide for Returning Home
-   * User pinches fingers, and while maintaining the pinch, slides horizontally left or right.
+   * Return to Dock: Deliberate Open-Palm Horizontal Swipe
+   * User keeps fingers extended (open palm, not pinching, not curled) and moves horizontally.
+   * Completely separates pinch-and-drag orb manipulation from docking requests.
    */
-  private checkPinchSlideReturn(hands: HandData[], now: number) {
-    if (now - this.lastPinchSlideTime < this.pinchSlideCooldown) return;
+  private checkOpenPalmHorizontalSwipe(hands: HandData[], now: number) {
+    if (now - this.lastOpenPalmSwipeTime < this.openPalmSwipeCooldown) return;
 
     for (const hand of hands) {
       const key = hand.handedness;
-      let tracker = this.pinchTrackers.get(key);
+      let tracker = this.openPalmSwipeTrackers.get(key);
 
-      if (hand.isPinching) {
+      // Must be an open palm (extended finger count >= 3, NOT pinching, NOT curled into fist)
+      if (hand.isOpenPalm && !hand.isPinching && !hand.isGrabbing) {
         if (!tracker || !tracker.isActive) {
-          // Pinch initiated: establish anchor
           tracker = {
             startX: hand.palmCenter.x,
             startY: hand.palmCenter.y,
             startTime: now,
             isActive: true,
           };
-          this.pinchTrackers.set(key, tracker);
+          this.openPalmSwipeTrackers.set(key, tracker);
         } else {
-          // Pinch maintained: test horizontal displacement
           const dx = hand.palmCenter.x - tracker.startX;
           const dy = hand.palmCenter.y - tracker.startY;
           const dt = (now - tracker.startTime) / 1000;
 
-          // Deliberate horizontal slide criteria:
-          // |dx| >= 0.075, horizontal dominates vertical (|dx| > 1.25 * |dy|), within 80ms - 550ms
-          if (dt >= 0.08 && dt <= 0.55 && Math.abs(dx) >= 0.075 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+          // Deliberate horizontal swipe criteria:
+          // |dx| >= 0.08 (min horizontal travel across screen)
+          // Horizontal strictly dominates vertical (|dx| > 1.35 * |dy|)
+          // Duration between 80ms and 500ms
+          if (dt >= 0.08 && dt <= 0.50 && Math.abs(dx) >= 0.08 && Math.abs(dx) > Math.abs(dy) * 1.35) {
             const dir = dx > 0 ? 'right' : 'left';
-            this.lastPinchSlideTime = now;
+            this.lastOpenPalmSwipeTime = now;
             this.lastDetectedSwipeDir = dir;
             tracker.isActive = false;
 
-            console.log(`[HandTracker] Pinch-and-horizontal-slide return recognized (${dir}, dx=${dx.toFixed(2)})`);
-            this.callbacks.onPinchSlideReturn?.(dir, hand.handedness);
+            console.log(
+              `%c[HandTracker] Open-palm horizontal swipe recognized!%c dir=${dir}, dx=${dx.toFixed(2)}, hand=${hand.handedness}`,
+              'color: #f59e0b; font-weight: bold;',
+              'color: #38bdf8;'
+            );
+
+            this.callbacks.onOpenPalmSwipe?.(dir, hand.handedness, { x: hand.palmCenter.x, y: hand.palmCenter.y });
             this.callbacks.onSwipe?.(dir);
             return;
           }

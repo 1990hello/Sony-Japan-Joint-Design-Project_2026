@@ -112,6 +112,19 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const mouseTrailRef = useRef<{ x: number; y: number; time: number }[]>([]);
 
+  // Stable Grab Offset & Gesture Lock States
+  const isGrabbingOrbRef = useRef<boolean>(false);
+  const grabOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dockingLockedRef = useRef<boolean>(false);
+  const lastDockTriggerTimeRef = useRef<number>(0);
+  const swipeTrajectoryRef = useRef<{ [key: string]: { startX: number; startY: number; startTime: number } }>({});
+
+  // Journey persistence across dock retrieval
+  const hasSpokenQuoteRef = useRef<boolean>(false);
+  const hasAppearedFootstepsRef = useRef<boolean>(false);
+  const hasPrintedFilmRef = useRef<boolean>(false);
+  const suspendedJourneyStateRef = useRef<ExperienceState | null>(null);
+
   // Animation time
   const animTimeRef = useRef<number>(0);
 
@@ -386,54 +399,82 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       soundSynthesizer.playSwipePulse();
       swipeShimmerRef.current = 1.0;
       orbVelRef.current = { vx: 0, vy: 0 };
+      dockingLockedRef.current = true;
 
       const dockPx = { x: w * dockX, y: h * dockY };
       const startPos = { x: orbPosRef.current.x, y: orbPosRef.current.y };
       const midX = (startPos.x + dockPx.x) / 2;
       const midY = Math.min(startPos.y, dockPx.y) - 130;
 
+      // Animate smoothly along curved Bezier arc (1.25s)
       dockFlightRef.current = {
         start: startPos,
         control: { x: midX, y: midY },
         target: dockPx,
         startTime: performance.now(),
-        duration: 1.1,
+        duration: 1.25,
       };
 
-      // Fix 2: Transition to DOCKED_IDLE only after flight visibly completes
-      const timer = setTimeout(() => {
+      // Watchdog safety fallback (flight is authoritatively completed in render loop)
+      const safetyTimer = setTimeout(() => {
         if (
-          stateRef.current === 'DOCKING_FLIGHT' ||
-          stateRef.current === 'ORB_DOCKING' ||
-          stateRef.current === 'ORB_RETURNING_TO_DOCK'
+          dockFlightRef.current &&
+          (stateRef.current === 'DOCKING_FLIGHT' ||
+            stateRef.current === 'ORB_DOCKING' ||
+            stateRef.current === 'ORB_RETURNING_TO_DOCK')
         ) {
-          onStateChange('DOCKED_IDLE', 'Orb visibly arrived and settled in docking cradle');
+          dockFlightRef.current = null;
+          dockingLockedRef.current = false;
+          onStateChange('DOCKED_IDLE', 'Docking flight safety fallback');
         }
-      }, 1150);
-      return () => clearTimeout(timer);
+      }, 1600);
+      return () => clearTimeout(safetyTimer);
     } else if (state === 'DOCKED_IDLE' || state === 'IDLE') {
-      // Fix 2: Orb resting in dock cradle.
-      // Transition to WISDOM_QUOTE only after confirmed DOCKED_IDLE and brief 1.0s settle pause.
       dockFlightRef.current = null;
+      dockingLockedRef.current = false;
       orbVelRef.current = { vx: 0, vy: 0 };
       orbPosRef.current = { x: w * dockX, y: h * dockY };
       orbTargetPosRef.current = { x: w * dockX, y: h * dockY };
 
-      const timer = setTimeout(() => {
-        if (stateRef.current === 'DOCKED_IDLE' || stateRef.current === 'IDLE') {
-          onStateChange('WISDOM_QUOTE', 'Orb settled in dock; presenting wisdom quote');
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
+      // Wisdom quote only appears AFTER docking flight completes and 1.0s settle pause
+      if (!hasSpokenQuoteRef.current) {
+        const timer = setTimeout(() => {
+          if (stateRef.current === 'DOCKED_IDLE' || stateRef.current === 'IDLE') {
+            onStateChange('WISDOM_QUOTE', 'Orb settled in dock; presenting wisdom quote');
+          }
+        }, 1000);
+        return () => clearTimeout(timer);
+      } else if (suspendedJourneyStateRef.current) {
+        // Resume completed journey phase without replaying speech
+        const target = suspendedJourneyStateRef.current;
+        const timer = setTimeout(() => {
+          if (stateRef.current === 'DOCKED_IDLE' || stateRef.current === 'IDLE') {
+            onStateChange(target, `Resuming completed journey stage ${target}`);
+          }
+        }, 800);
+        return () => clearTimeout(timer);
+      }
     } else if (state === 'WISDOM_QUOTE' || state === 'QUOTE_PRESENTATION') {
+      hasSpokenQuoteRef.current = true;
       soundSynthesizer.speakQuote("A calmer mind creates a brighter tomorrow.", () => {
         setTimeout(() => {
           if (stateRef.current === 'WISDOM_QUOTE' || stateRef.current === 'QUOTE_PRESENTATION') {
-            onStateChange('PRINT_EDIBLE_FILM', 'Wisdom quote spoken; dock printing edible film');
+            // Sequence 8: Footprints appear after quote completes
+            onStateChange('FOOTSTEPS_APPEARING', 'Wisdom quote spoken; footsteps awakening toward door');
           }
         }, 1200);
       });
+    } else if (state === 'FOOTSTEPS_APPEARING') {
+      hasAppearedFootstepsRef.current = true;
+      const timer = setTimeout(() => {
+        if (stateRef.current === 'FOOTSTEPS_APPEARING') {
+          // Sequence 8: Dock printing begins after footsteps appear
+          onStateChange('PRINT_EDIBLE_FILM', 'Footstep trail materialized; dock printing edible film');
+        }
+      }, 5200);
+      return () => clearTimeout(timer);
     } else if (state === 'PRINT_EDIBLE_FILM' || state === 'EDIBLE_FILM_PRINTING') {
+      hasPrintedFilmRef.current = true;
       const timer = setTimeout(() => {
         if (stateRef.current === 'PRINT_EDIBLE_FILM' || stateRef.current === 'EDIBLE_FILM_PRINTING') {
           onStateChange('TAKEAWAY_CHOICE', 'Edible film printed; presenting closing takeaway ritual');
@@ -443,13 +484,21 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     } else if (
       state === 'TAKEAWAY_CHOICE' ||
       state === 'CLOSURE_COMPLETE' ||
-      state === 'FOOTSTEPS_APPEARING' ||
       state === 'FOOTSTEPS_GUIDING'
     ) {
       dockFlightRef.current = null;
       orbVelRef.current = { vx: 0, vy: 0 };
       orbPosRef.current = { x: w * dockX, y: h * dockY };
       orbTargetPosRef.current = { x: w * dockX, y: h * dockY };
+    } else if (state === 'WORK_TABS' || state === 'INITIAL_WORK_TABS') {
+      // Clear persistence and locks on experience reset
+      hasSpokenQuoteRef.current = false;
+      hasAppearedFootstepsRef.current = false;
+      hasPrintedFilmRef.current = false;
+      suspendedJourneyStateRef.current = null;
+      dockFlightRef.current = null;
+      isGrabbingOrbRef.current = false;
+      dockingLockedRef.current = false;
     }
   }, [state, encouragementText, dockX, dockY, onStateChange]);
 
@@ -525,84 +574,182 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     soundSynthesizer.playBounceSound(Math.min(1.5, currentSpeed / 300));
   };
 
+  // Open-Palm Horizontal Swipe Recognition near Orb for Returning to Dock
+  const checkOpenPalmDockingGesture = (w: number, h: number, now: number) => {
+    const currentState = stateRef.current;
+    if (currentState !== 'ORB_FREE_PLAY' && currentState !== 'ORB_RELEASED') return;
+    if (isGrabbingOrbRef.current || isMouseDragging || dockingLockedRef.current) return;
+    if (now - lastDockTriggerTimeRef.current < 2000) return;
+
+    for (const hand of hands) {
+      // Condition 3: Hand must be an open palm (extended fingers, not pinching, not curled)
+      if (!hand.isOpenPalm || hand.isPinching || hand.isGrabbing) continue;
+
+      const handScreenX = hand.palmCenter.x * w;
+      const handScreenY = hand.palmCenter.y * h;
+
+      // Condition 4: Hand begins / moves within defined interaction region near orb (within ~260px)
+      const distToOrb = Math.hypot(handScreenX - orbPosRef.current.x, handScreenY - orbPosRef.current.y);
+      if (distToOrb > orbRadiusRef.current * 3.4) continue;
+
+      const key = hand.handedness;
+      let traj = swipeTrajectoryRef.current[key];
+      if (!traj) {
+        swipeTrajectoryRef.current[key] = {
+          startX: hand.palmCenter.x,
+          startY: hand.palmCenter.y,
+          startTime: now,
+        };
+      } else {
+        const dx = hand.palmCenter.x - traj.startX;
+        const dy = hand.palmCenter.y - traj.startY;
+        const dt = (now - traj.startTime) / 1000;
+
+        // Condition 5: Open palm moves horizontally by minimum distance within 80ms - 500ms
+        // |dx| >= 0.075 and horizontal dominates vertical (|dx| >= |dy| * 1.35)
+        if (dt >= 0.08 && dt <= 0.50 && Math.abs(dx) >= 0.075 && Math.abs(dx) >= Math.abs(dy) * 1.35) {
+          lastDockTriggerTimeRef.current = now;
+          dockingLockedRef.current = true;
+          delete swipeTrajectoryRef.current[key];
+
+          const dir = dx > 0 ? 'right' : 'left';
+          console.log(
+            `%c[OrbCanvas] Open-palm horizontal swipe dock request triggered!%c dir=${dir}, dx=${dx.toFixed(2)}, dt=${dt.toFixed(2)}s`,
+            'color: #10b981; font-weight: bold;',
+            'color: #f59e0b;'
+          );
+
+          // Lock requests, capture current position, and begin visible curved flight
+          soundSynthesizer.playSwipePulse();
+          swipeShimmerRef.current = 1.0;
+          orbVelRef.current = { vx: 0, vy: 0 };
+
+          const dockPx = { x: w * dockX, y: h * dockY };
+          const startPos = { x: orbPosRef.current.x, y: orbPosRef.current.y };
+          const midX = (startPos.x + dockPx.x) / 2;
+          const midY = Math.min(startPos.y, dockPx.y) - 130;
+
+          dockFlightRef.current = {
+            start: startPos,
+            control: { x: midX, y: midY },
+            target: dockPx,
+            startTime: performance.now(),
+            duration: 1.25,
+          };
+
+          onStateChange('DOCKING_FLIGHT', `Open-palm horizontal swipe (${dir}) initiated curved docking flight`);
+          return;
+        } else if (dt > 0.50) {
+          swipeTrajectoryRef.current[key] = {
+            startX: hand.palmCenter.x,
+            startY: hand.palmCenter.y,
+            startTime: now,
+          };
+        }
+      }
+    }
+  };
+
   // Process Hand Tracking State in Animation Loop (Prevents Stale Props & Racing)
   const processHandInteractions = (w: number, h: number, now: number) => {
     const currentState = stateRef.current;
-    const isPlayable =
+
+    const isDockedState =
+      currentState === 'DOCKED_IDLE' ||
+      currentState === 'IDLE' ||
+      currentState === 'WISDOM_QUOTE' ||
+      currentState === 'FOOTSTEPS_APPEARING' ||
+      currentState === 'FOOTSTEPS_GUIDING' ||
+      currentState === 'PRINT_EDIBLE_FILM' ||
+      currentState === 'TAKEAWAY_CHOICE' ||
+      currentState === 'CLOSURE_COMPLETE';
+
+    const isFreePlayState =
+      currentState === 'ORB_FREE_PLAY' ||
       currentState === 'ORB_RELEASED' ||
       currentState === 'ORB_HELD' ||
       currentState === 'ORB_GRABBED' ||
       currentState === 'ORB_IN_FLIGHT' ||
-      currentState === 'ORB_CAUGHT' ||
-      currentState === 'IDLE' ||
-      currentState === 'FOOTSTEPS_APPEARING' ||
-      currentState === 'FOOTSTEPS_GUIDING';
+      currentState === 'ORB_CAUGHT';
 
-    if (!isPlayable) return;
+    if (!isDockedState && !isFreePlayState) return;
 
-    // A. Pickup from Dock (when IDLE or FOOTSTEPS) or Floating (when ORB_RELEASED)
-    if (
-      currentState === 'IDLE' ||
-      currentState === 'FOOTSTEPS_APPEARING' ||
-      currentState === 'FOOTSTEPS_GUIDING' ||
-      currentState === 'ORB_RELEASED'
-    ) {
+    // A. Retrieve Orb from Dock Cradle for Free Play
+    if (isDockedState) {
       if (handInteractionPoint && isGrabbingFromHand) {
         const handPx = { x: handInteractionPoint.x * w, y: handInteractionPoint.y * h };
-        const dist = Math.hypot(handPx.x - orbPosRef.current.x, handPx.y - orbPosRef.current.y);
+        const dockPx = { x: w * dockX, y: h * dockY };
+        const distToDock = Math.hypot(handPx.x - dockPx.x, handPx.y - dockPx.y);
 
-        if (dist < orbRadiusRef.current * 1.55) {
+        // Pinch near dock & pull away (> 24px) smoothly detaches orb
+        if (distToDock < orbRadiusRef.current * 1.8 && distToDock > 24) {
           soundSynthesizer.stopCampfireCrackle();
           soundSynthesizer.playGrabChime();
           catchPulseRef.current = 1.0;
+          suspendedJourneyStateRef.current = currentState;
+          isGrabbingOrbRef.current = true;
+          grabOffsetRef.current = { x: 0, y: 0 };
           orbVelRef.current = { vx: 0, vy: 0 };
           orbTargetPosRef.current = handPx;
           handTrailRef.current = [{ x: handPx.x, y: handPx.y, time: now }];
-          onStateChange('ORB_HELD', 'Picked up by hand');
+          onStateChange('ORB_HELD', 'Retrieved orb from dock for free play');
         }
       }
     }
 
-    // B. Holding the Orb (following hand) & Throw Release Detection
-    else if (currentState === 'ORB_HELD' || currentState === 'ORB_GRABBED') {
-      if (handInteractionPoint && isGrabbingFromHand) {
-        const handPx = { x: handInteractionPoint.x * w, y: handInteractionPoint.y * h };
-        orbTargetPosRef.current = handPx;
+    // B. Free Play Pinch-and-Drag Manipulation
+    else if (isFreePlayState) {
+      if (currentState === 'ORB_FREE_PLAY' || currentState === 'ORB_RELEASED') {
+        if (handInteractionPoint && isGrabbingFromHand && !isGrabbingOrbRef.current) {
+          const handPx = { x: handInteractionPoint.x * w, y: handInteractionPoint.y * h };
+          const dist = Math.hypot(handPx.x - orbPosRef.current.x, handPx.y - orbPosRef.current.y);
 
-        // Record rolling hand position history
-        handTrailRef.current.push({ x: handPx.x, y: handPx.y, time: now });
-        handTrailRef.current = handTrailRef.current.filter((p) => now - p.time <= 200);
-      } else if (!isGrabbingFromHand) {
-        // Hand opened without a flick: gently release orb to float calmly
-        orbVelRef.current = { vx: 0, vy: 0 };
-        const activeHand = hands.find((h) => h.handedness);
-        if (activeHand) {
-          lastReleasingHandRef.current = activeHand.handedness;
+          if (dist < orbRadiusRef.current * 1.6) {
+            soundSynthesizer.playGrabChime();
+            catchPulseRef.current = 1.0;
+            isGrabbingOrbRef.current = true;
+            // Stable Grab Offset: prevents snapping or jumping on pickup
+            grabOffsetRef.current = { x: orbPosRef.current.x - handPx.x, y: orbPosRef.current.y - handPx.y };
+            orbVelRef.current = { vx: 0, vy: 0 };
+            orbTargetPosRef.current = { x: handPx.x + grabOffsetRef.current.x, y: handPx.y + grabOffsetRef.current.y };
+            handTrailRef.current = [{ x: handPx.x, y: handPx.y, time: now }];
+            onStateChange('ORB_HELD', 'Picked up with pinch');
+          }
         }
-        throwCooldownUntilRef.current = now + 350;
-        onStateChange('ORB_RELEASED', 'Released gently to float in air');
-      }
-    }
-
-    // C. Catching the Orb in Flight by Any Eligible Hand
-    else if (currentState === 'ORB_IN_FLIGHT') {
-      for (const hand of hands) {
-        // Prevent immediate re-catch by the releasing hand during cooldown
-        if (hand.handedness === lastReleasingHandRef.current && now < throwCooldownUntilRef.current) {
-          continue;
+      } else if (currentState === 'ORB_HELD' || currentState === 'ORB_GRABBED') {
+        if (handInteractionPoint && isGrabbingFromHand) {
+          const handPx = { x: handInteractionPoint.x * w, y: handInteractionPoint.y * h };
+          orbTargetPosRef.current = {
+            x: handPx.x + grabOffsetRef.current.x,
+            y: handPx.y + grabOffsetRef.current.y,
+          };
+          handTrailRef.current.push({ x: handPx.x, y: handPx.y, time: now });
+          handTrailRef.current = handTrailRef.current.filter((p) => now - p.time <= 200);
+        } else if (!isGrabbingFromHand) {
+          // Hand opened / pinch released: settle gently in current position
+          isGrabbingOrbRef.current = false;
+          orbVelRef.current = { vx: 0, vy: 0 };
+          orbTargetPosRef.current = { ...orbPosRef.current };
+          const activeHand = hands.find((h) => h.handedness);
+          if (activeHand) {
+            lastReleasingHandRef.current = activeHand.handedness;
+          }
+          throwCooldownUntilRef.current = now + 350;
+          onStateChange('ORB_FREE_PLAY', 'Pinch released; orb settled gently');
         }
-
-        const handPx = {
-          x: (hand.thumbTip.x + hand.indexTip.x) * 0.5 * w,
-          y: (hand.thumbTip.y + hand.indexTip.y) * 0.5 * h,
-        };
-        const dist = Math.hypot(handPx.x - orbPosRef.current.x, handPx.y - orbPosRef.current.y);
-
-        // Catch window: within radius and either grabbing, pinching, or close palm
-        if (dist < orbRadiusRef.current * 1.55) {
-          if (hand.isGrabbing || hand.pinchDistance < 0.12) {
+      } else if (currentState === 'ORB_IN_FLIGHT') {
+        for (const hand of hands) {
+          if (hand.handedness === lastReleasingHandRef.current && now < throwCooldownUntilRef.current) continue;
+          const handPx = {
+            x: (hand.thumbTip.x + hand.indexTip.x) * 0.5 * w,
+            y: (hand.thumbTip.y + hand.indexTip.y) * 0.5 * h,
+          };
+          const dist = Math.hypot(handPx.x - orbPosRef.current.x, handPx.y - orbPosRef.current.y);
+          if (dist < orbRadiusRef.current * 1.55 && (hand.isGrabbing || hand.pinchDistance < 0.12)) {
             soundSynthesizer.playCatchChime();
             catchPulseRef.current = 1.0;
+            isGrabbingOrbRef.current = true;
+            grabOffsetRef.current = { x: 0, y: 0 };
             orbVelRef.current = { vx: 0, vy: 0 };
             orbTargetPosRef.current = handPx;
             handTrailRef.current = [{ x: handPx.x, y: handPx.y, time: now }];
@@ -618,13 +765,19 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const currentState = stateRef.current;
     const isInteractive =
+      currentState === 'ORB_FREE_PLAY' ||
       currentState === 'ORB_RELEASED' ||
       currentState === 'ORB_HELD' ||
       currentState === 'ORB_GRABBED' ||
       currentState === 'ORB_IN_FLIGHT' ||
+      currentState === 'DOCKED_IDLE' ||
       currentState === 'IDLE' ||
+      currentState === 'WISDOM_QUOTE' ||
       currentState === 'FOOTSTEPS_APPEARING' ||
-      currentState === 'FOOTSTEPS_GUIDING';
+      currentState === 'FOOTSTEPS_GUIDING' ||
+      currentState === 'PRINT_EDIBLE_FILM' ||
+      currentState === 'TAKEAWAY_CHOICE' ||
+      currentState === 'CLOSURE_COMPLETE';
 
     if (!isInteractive) return;
 
@@ -638,7 +791,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     const dy = mouseY - orbPosRef.current.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist < orbRadiusRef.current * 1.55) {
+    if (dist < orbRadiusRef.current * 1.6) {
       setIsMouseDragging(true);
       dragOffsetRef.current = { x: dx, y: dy };
       mouseTrailRef.current = [{ x: mouseX, y: mouseY, time: performance.now() }];
@@ -648,12 +801,19 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         soundSynthesizer.playCatchChime();
         catchPulseRef.current = 1.0;
       } else {
-        if (
+        const isDocked =
+          currentState === 'DOCKED_IDLE' ||
           currentState === 'IDLE' ||
+          currentState === 'WISDOM_QUOTE' ||
           currentState === 'FOOTSTEPS_APPEARING' ||
-          currentState === 'FOOTSTEPS_GUIDING'
-        ) {
+          currentState === 'FOOTSTEPS_GUIDING' ||
+          currentState === 'PRINT_EDIBLE_FILM' ||
+          currentState === 'TAKEAWAY_CHOICE' ||
+          currentState === 'CLOSURE_COMPLETE';
+
+        if (isDocked) {
           soundSynthesizer.stopCampfireCrackle();
+          suspendedJourneyStateRef.current = currentState;
         }
         soundSynthesizer.playGrabChime();
       }
@@ -708,7 +868,7 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
     }
 
     orbVelRef.current = { vx: 0, vy: 0 };
-    onStateChange('ORB_RELEASED', 'Released gently with mouse');
+    onStateChange('ORB_FREE_PLAY', 'Released gently with mouse into free play');
   };
 
   // Main 60fps Physics & Render Loop
@@ -737,9 +897,15 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
 
       // 1. Process Hand Catching, Holding, and Releases
       processHandInteractions(w, h, now);
+      checkOpenPalmDockingGesture(w, h, now);
 
       // 2. DOCKED FLIGHT TRAJECTORY (Single Owner during return-to-dock)
-      if (dockFlightRef.current && currentState === 'ORB_DOCKING') {
+      if (
+        dockFlightRef.current &&
+        (currentState === 'DOCKING_FLIGHT' ||
+          currentState === 'ORB_DOCKING' ||
+          currentState === 'ORB_RETURNING_TO_DOCK')
+      ) {
         const flight = dockFlightRef.current;
         const elapsed = (now - flight.startTime) / 1000;
         const p = Math.min(1, elapsed / flight.duration);
@@ -758,8 +924,10 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
           dockFlightRef.current = null;
           orbPosRef.current = flight.target;
           orbTargetPosRef.current = flight.target;
+          dockingLockedRef.current = false;
           soundSynthesizer.playDockSettled();
-          onStateChange('IDLE', 'Dock flight completed');
+          soundSynthesizer.startCampfireCrackle();
+          onStateChange('DOCKED_IDLE', 'Dock flight completed; settled between cradle logs');
         }
       }
 
@@ -822,12 +990,17 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
 
       // Subtle atmospheric floating oscillation
       let floatY = 0;
-      if (currentState === 'ORB_RELEASED') {
+      if (currentState === 'ORB_RELEASED' || currentState === 'ORB_FREE_PLAY') {
         floatY = Math.sin(t * 1.5) * 8;
       } else if (
+        currentState === 'DOCKED_IDLE' ||
         currentState === 'IDLE' ||
+        currentState === 'WISDOM_QUOTE' ||
         currentState === 'FOOTSTEPS_APPEARING' ||
-        currentState === 'FOOTSTEPS_GUIDING'
+        currentState === 'FOOTSTEPS_GUIDING' ||
+        currentState === 'PRINT_EDIBLE_FILM' ||
+        currentState === 'TAKEAWAY_CHOICE' ||
+        currentState === 'CLOSURE_COMPLETE'
       ) {
         floatY = Math.sin(t * 1.2) * 3;
       }

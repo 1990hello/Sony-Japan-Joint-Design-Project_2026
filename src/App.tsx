@@ -24,9 +24,9 @@ const ENCOURAGEMENT_MESSAGES = [
   'You do not have to finish everything today.',
 ];
 
-// Fixed normalized Dock position (approx 68% X, 58% Y on desk)
+// Fixed normalized Dock position (approx 68% X, 48% Y on desk for optimal AR framing and edible film spacing)
 // Kept outside component body so reference is stable and never causes re-render cascades
-const DOCK_POSITION = { x: 0.68, y: 0.58 };
+const DOCK_POSITION = { x: 0.68, y: 0.48 };
 
 export default function App() {
   const [state, setState] = useState<ExperienceState>('WORK_TABS');
@@ -49,6 +49,7 @@ export default function App() {
   const [hands, setHands] = useState<HandData[]>([]);
   const [handInteractionPoint, setHandInteractionPoint] = useState<{ x: number; y: number } | null>(null);
   const [isGrabbingFromHand, setIsGrabbingFromHand] = useState<boolean>(false);
+  const isGrabbingFromHandRef = useRef<boolean>(false);
   const [isDockHovered, setIsDockHovered] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [cameraStatus, setCameraStatus] = useState<'ready' | 'loading' | 'denied' | 'unsupported'>('loading');
@@ -59,6 +60,11 @@ export default function App() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const handTrackerRef = useRef<HandTracker | null>(null);
+
+  // Keep ref synchronized
+  useEffect(() => {
+    isGrabbingFromHandRef.current = isGrabbingFromHand;
+  }, [isGrabbingFromHand]);
 
   // Initialize Audio & Sound on first interaction
   const initAudio = () => {
@@ -193,6 +199,7 @@ export default function App() {
       onGrabStart: (x, y) => {
         setHandInteractionPoint({ x, y });
         setIsGrabbingFromHand(true);
+        isGrabbingFromHandRef.current = true;
       },
       onGrabMove: (x, y) => {
         setHandInteractionPoint({ x, y });
@@ -200,12 +207,16 @@ export default function App() {
       onGrabEnd: (x, y) => {
         setHandInteractionPoint({ x, y });
         setIsGrabbingFromHand(false);
+        isGrabbingFromHandRef.current = false;
       },
       onFlick: handleFlick,
-      onPinchSlideReturn: (direction, handedness) => {
-        handleSwipeReturn(`Pinch-and-slide return (${direction}) via ${handedness} hand`);
+      onOpenPalmSwipe: (direction, handedness) => {
+        // Prevent dock triggers if user is actively holding/dragging orb
+        if (isGrabbingFromHandRef.current) return;
+        handleSwipeReturn(`Open-palm swipe (${direction}) via ${handedness} hand`);
       },
       onSwipe: (dir) => {
+        if (isGrabbingFromHandRef.current) return;
         handleSwipeReturn(`Swipe return (${dir})`);
       },
       onHandsUpdate: (detectedHands) => {
@@ -229,44 +240,34 @@ export default function App() {
 
   const simulatePickupFromDock = useCallback(() => {
     initAudio();
-    if (state === 'IDLE' || state === 'FOOTSTEPS_APPEARING' || state === 'FOOTSTEPS_GUIDING') {
+    // Rule 3: Orb can only be picked up from cradle for free play once the closure ritual is complete!
+    if (state === 'CLOSURE_COMPLETE' || state === 'IDLE') {
       soundSynthesizer.stopCampfireCrackle();
       soundSynthesizer.playGrabChime();
-      transitionState('ORB_HELD', 'Picked up from firewood cradle');
+      transitionState('ORB_HELD', 'Picked up from firewood cradle after closure complete');
     }
   }, [state, transitionState]);
 
-  // Trigger Footstep Materialization after Orb settles in IDLE dock state
-  useEffect(() => {
-    if (state === 'IDLE') {
-      const timer = setTimeout(() => {
-        // Only trigger if still IDLE (user didn't immediately grab the orb)
-        setState((curr) => {
-          if (curr === 'IDLE') {
-            const now = new Date();
-            const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-            console.log(`[STATE TRANSITION] IDLE -> FOOTSTEPS_APPEARING | Reason: Orb settled in dock; glowing footsteps awaken | Time: ${timeStr}`);
-            setPreviousState('IDLE');
-            setStateEnteredAt(Date.now());
-            setStateDurationSec(0);
-            setLastTransitionReason('Orb settled in dock; glowing footsteps awaken');
-            setTransitionLogs((prev) => [
-              { from: 'IDLE', to: 'FOOTSTEPS_APPEARING', reason: 'Orb settled in dock; glowing footsteps awaken', timestamp: timeStr },
-              ...prev.slice(0, 24),
-            ]);
-            return 'FOOTSTEPS_APPEARING';
-          }
-          return curr;
-        });
-      }, 1400); // 1.4s respectful pause allowing user to register Closure completion
-
-      return () => clearTimeout(timer);
-    }
-  }, [state]);
-
+  // Rule 2: Automatically Print Edible Film when footsteps animation finishes
   const handleTrailComplete = useCallback(() => {
-    transitionState('FOOTSTEPS_GUIDING', 'Sequential footstep trail materialized; soft guide active');
-  }, [transitionState]);
+    setState((curr) => {
+      if (curr === 'FOOTSTEPS_APPEARING' || curr === 'FOOTSTEPS_GUIDING') {
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+        console.log(`[STATE TRANSITION] ${curr} -> PRINT_EDIBLE_FILM | Reason: Footsteps finished; auto-printing edible film | Time: ${timeStr}`);
+        setPreviousState(curr);
+        setStateEnteredAt(Date.now());
+        setStateDurationSec(0);
+        setLastTransitionReason('Footsteps finished; auto-printing edible film');
+        setTransitionLogs((prev) => [
+          { from: curr, to: 'PRINT_EDIBLE_FILM', reason: 'Footsteps finished; auto-printing edible film', timestamp: timeStr },
+          ...prev.slice(0, 24),
+        ]);
+        return 'PRINT_EDIBLE_FILM';
+      }
+      return curr;
+    });
+  }, []);
 
   const simulateFlick = useCallback(() => {
     initAudio();
