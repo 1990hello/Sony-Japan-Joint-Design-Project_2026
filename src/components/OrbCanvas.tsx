@@ -247,6 +247,9 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   const dockY = dockPosition.y;
 
   useEffect(() => {
+    let previousWidth = 0;
+    let previousHeight = 0;
+
     const handleResize = () => {
       if (!canvasRef.current) return;
       const w = window.innerWidth;
@@ -259,13 +262,48 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         foregroundCanvasRef.current.height = h * pixelRatio;
       }
 
-      if (stateRef.current === 'IDLE' && !dockFlightRef.current) {
+      const currentState = stateRef.current;
+      const isDockedState = [
+        'IDLE',
+        'DOCKED_IDLE',
+        'WISDOM_QUOTE',
+        'QUOTE_PRESENTATION',
+        'PRINT_EDIBLE_FILM',
+        'EDIBLE_FILM_PRINTING',
+        'TAKEAWAY_CHOICE',
+        'CLOSURE_COMPLETE',
+        'FOOTSTEPS_APPEARING',
+        'FOOTSTEPS_GUIDING',
+      ].includes(currentState);
+
+      if (isDockedState && !dockFlightRef.current) {
         orbPosRef.current = { x: w * dockX, y: h * dockY };
         orbTargetPosRef.current = { x: w * dockX, y: h * dockY };
+      } else if (previousWidth > 0 && previousHeight > 0) {
+        // Keep the orb at the same relative screen position when the preview
+        // viewport changes size (for example, when a narrow preview is expanded).
+        const scaleX = w / previousWidth;
+        const scaleY = h / previousHeight;
+        const scalePoint = (point: { x: number; y: number }) => ({
+          x: point.x * scaleX,
+          y: point.y * scaleY,
+        });
+
+        orbPosRef.current = scalePoint(orbPosRef.current);
+        orbTargetPosRef.current = scalePoint(orbTargetPosRef.current);
+
+        if (dockFlightRef.current) {
+          dockFlightRef.current.start = scalePoint(dockFlightRef.current.start);
+          dockFlightRef.current.control = scalePoint(dockFlightRef.current.control);
+          dockFlightRef.current.target = scalePoint(dockFlightRef.current.target);
+        }
       } else if (orbPosRef.current.x === 0) {
         orbPosRef.current = { x: w * 0.5, y: h * 0.44 };
         orbTargetPosRef.current = { x: w * 0.5, y: h * 0.44 };
       }
+
+      previousWidth = w;
+      previousHeight = h;
     };
 
     handleResize();
