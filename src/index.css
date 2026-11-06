@@ -68,3 +68,74 @@
 .animate-mist {
   animation: mistFloat 16s ease-in-out infinite alternate;
 }
+
+
+/* Spatial glass depth for the Stage 1 work windows. */
+.work-window-shell {
+  /* Keep the existing Tailwind absolute positioning on each tab wrapper. */
+  isolation: isolate;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.28));
+}
+
+.work-window-shell::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border: 1px solid rgba(157, 211, 239, 0.42);
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(145deg, rgba(151, 211, 240, 0.3), rgba(21, 37, 57, 0.96) 46%, rgba(5, 10, 21, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(203, 232, 248, 0.08),
+    0 0 22px rgba(92, 184, 226, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transform: translate3d(0, 0, -12px);
+  pointer-events: none;
+}
+
+.work-window-surface {
+  position: relative;
+  z-index: 1;
+  transform: translateZ(0);
+  transform-style: preserve-3d;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(129, 198, 230, 0.14);
+}
+
+.work-window-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 1px solid rgba(211, 237, 250, 0.3);
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(128deg, rgba(255, 255, 255, 0.2) 0%, rgba(183, 224, 246, 0.04) 22%, transparent 42%, transparent 70%, rgba(140, 202, 234, 0.1) 100%);
+  background-size: 220% 220%;
+  animation: workWindowReflection 13s ease-in-out infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+@keyframes workWindowReflection {
+  0%, 100% {
+    background-position: 0% 0%;
+    opacity: 0.42;
+  }
+  50% {
+    background-position: 100% 100%;
+    opacity: 0.78;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-window-shell::after {
+    animation: none;
+    opacity: 0.5;
+  }
+}

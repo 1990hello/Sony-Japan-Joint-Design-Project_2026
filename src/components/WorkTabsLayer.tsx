@@ -229,7 +229,7 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
         return (
           <div
             key={tab.id}
-            className={`absolute transition-all ${
+            className={`work-window-shell absolute transition-all ${
               isTransferring
                 ? 'duration-700 ease-in opacity-0 scale-25 pointer-events-none'
                 : 'duration-1000 ease-out opacity-90 hover:opacity-100 pointer-events-auto'
@@ -239,11 +239,13 @@ export const WorkTabsLayer: React.FC<WorkTabsLayerProps> = ({
                 ? `translate3d(0px, -20px, -240px) rotateX(${tab.initialPos.rotX * 2}deg) rotateY(${tab.initialPos.rotY * 2}deg) scale(0.06)`
                 : `translate3d(${tab.initialPos.x}px, ${tab.initialPos.y}px, ${tab.initialPos.z}px) rotateX(${tab.initialPos.rotX}deg) rotateY(${tab.initialPos.rotY}deg) rotateZ(${tab.initialPos.rotZ}deg)`,
               width: '260px',
+              transformStyle: 'preserve-3d',
+              willChange: 'transform',
             }}
           >
             {/* Holographic AR Work Window */}
             <div
-              className={`glass-tab rounded-xl p-3.5 shadow-2xl relative overflow-hidden transition-all duration-700 border backdrop-blur-md ${
+              className={`glass-tab work-window-surface rounded-xl p-3.5 shadow-2xl relative overflow-hidden transition-all duration-700 border backdrop-blur-md ${
                 isForming
                   ? 'border-amber-300/40 bg-slate-900/85 shadow-[0_0_25px_rgba(251,191,36,0.2)]'
                   : 'border-cyan-400/30 bg-slate-900/80 hover:border-cyan-300/60'
