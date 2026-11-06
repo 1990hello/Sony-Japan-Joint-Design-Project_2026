@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { HandData } from '../types';
 
 interface HandFeedbackOverlayProps {
@@ -109,11 +110,19 @@ export const HandFeedbackOverlay: React.FC<HandFeedbackOverlayProps> = ({ hands 
     return () => window.removeEventListener('resize', draw);
   }, [hands]);
 
-  return (
+  return createPortal(
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 z-40 h-full w-full pointer-events-none"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 2147483647,
+        pointerEvents: 'none',
+      }}
       aria-hidden="true"
-    />
+    />,
+    document.body
   );
 };
