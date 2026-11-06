@@ -72,7 +72,7 @@
 
 /* Spatial glass depth for the Stage 1 work windows. */
 .work-window-shell {
-  position: relative;
+  /* Keep the existing Tailwind absolute positioning on each tab wrapper. */
   isolation: isolate;
   transform-style: preserve-3d;
   backface-visibility: hidden;
