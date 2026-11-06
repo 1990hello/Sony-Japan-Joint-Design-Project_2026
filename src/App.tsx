@@ -8,6 +8,7 @@ import { ExperienceState, HandData } from './types';
 import { BedroomEnvironment } from './components/BedroomEnvironment';
 import { WorkTabsLayer } from './components/WorkTabsLayer';
 import { OrbCanvas } from './components/OrbCanvas';
+import { HandFeedbackOverlay } from './components/HandFeedbackOverlay';
 import { EncouragementDisplay } from './components/EncouragementDisplay';
 import { EdibleFilmTakeaway } from './components/EdibleFilmTakeaway';
 import { ControlsOverlay } from './components/ControlsOverlay';
@@ -430,6 +431,9 @@ export default function App() {
         flickAction={lastFlick}
         encouragementText={encouragementText}
       />
+
+      {/* Hand feedback stays above floating tabs without blocking pointer input. */}
+      <HandFeedbackOverlay hands={hands} />
 
       {/* Layer 5: Stage 2 Personalised Accomplishments & Golden Encouragement Handwriting */}
       <EncouragementDisplay
