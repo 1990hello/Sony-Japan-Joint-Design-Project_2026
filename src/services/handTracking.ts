@@ -8,6 +8,7 @@ declare global {
 
 export interface HandTrackerCallbacks {
   onHandsTogether?: () => void;
+  onPinchStart?: (x: number, y: number, handedness: 'Left' | 'Right') => boolean;
   onClap?: () => void;
   onGrabStart?: (x: number, y: number, handedness: 'Left' | 'Right') => void;
   onGrabMove?: (x: number, y: number, handedness: 'Left' | 'Right') => void;
@@ -50,6 +51,8 @@ export class HandTracker {
   private isCurrentlyGrabbing: boolean = false;
   private grabbingHandedness: 'Left' | 'Right' | null = null;
   private grabHoldFrames: number = 0;
+  private previousPinchStates = new Map<'Left' | 'Right', boolean>();
+  private pinchOnButtonHands = new Set<'Left' | 'Right'>();
 
   // Multi-hand velocity & trajectory history (350ms window)
   private handHistories: Map<string, HandHistory> = new Map();
@@ -304,6 +307,7 @@ export class HandTracker {
     }
 
     this.smoothHands(rawHands);
+    this.checkPinchButtonActivation(this.smoothedHands);
     this.callbacks.onHandsUpdate?.(this.smoothedHands);
 
     // 1. Hands Together Detection for Stage 1 initial trigger
@@ -317,6 +321,53 @@ export class HandTracker {
 
     // 4. Hand grabbing / pickup tracking
     this.checkInteractions(this.smoothedHands);
+  }
+
+  /**
+   * Activate an interface control on the pinch-start edge, not on pinch release.
+   * A handled pinch is marked on HandData so other pinch interactions do not
+   * also pick up the orb or edible film during the same gesture.
+   */
+  private checkPinchButtonActivation(hands: HandData[]) {
+    if (hands.length === 0) {
+      this.previousPinchStates.clear();
+      this.pinchOnButtonHands.clear();
+      return;
+    }
+
+    const seenHands = new Set<'Left' | 'Right'>();
+
+    for (const hand of hands) {
+      const handedness = hand.handedness;
+      seenHands.add(handedness);
+
+      const wasPinching = this.previousPinchStates.get(handedness) ?? false;
+      if (hand.isPinching && !wasPinching) {
+        const pinchPoint = {
+          x: (hand.thumbTip.x + hand.indexTip.x) / 2,
+          y: (hand.thumbTip.y + hand.indexTip.y) / 2,
+        };
+
+        if (this.callbacks.onPinchStart?.(pinchPoint.x, pinchPoint.y, handedness) === true) {
+          this.pinchOnButtonHands.add(handedness);
+        }
+      }
+
+      // Keep the UI target marked for the entire pinch, including its release frame.
+      hand.isPinchOnButton = this.pinchOnButtonHands.has(handedness);
+      this.previousPinchStates.set(handedness, hand.isPinching);
+
+      if (!hand.isPinching) {
+        this.pinchOnButtonHands.delete(handedness);
+      }
+    }
+
+    for (const handedness of this.previousPinchStates.keys()) {
+      if (!seenHands.has(handedness)) {
+        this.previousPinchStates.set(handedness, false);
+        this.pinchOnButtonHands.delete(handedness);
+      }
+    }
   }
 
   private smoothHands(rawHands: HandData[]) {
@@ -575,7 +626,7 @@ export class HandTracker {
     if (this.isCurrentlyGrabbing && this.grabbingHandedness) {
       const activeHand = hands.find((h) => h.handedness === this.grabbingHandedness);
 
-      if (activeHand && activeHand.isGrabbing) {
+      if (activeHand && activeHand.isGrabbing && !activeHand.isPinchOnButton) {
         const pt = {
           x: (activeHand.thumbTip.x + activeHand.indexTip.x) / 2,
           y: (activeHand.thumbTip.y + activeHand.indexTip.y) / 2,
@@ -603,7 +654,7 @@ export class HandTracker {
       return;
     }
 
-    const newGrabbingHand = hands.find((h) => h.isGrabbing);
+    const newGrabbingHand = hands.find((h) => h.isGrabbing && !h.isPinchOnButton);
     if (newGrabbingHand) {
       this.grabHoldFrames++;
       if (this.grabHoldFrames >= 2) {

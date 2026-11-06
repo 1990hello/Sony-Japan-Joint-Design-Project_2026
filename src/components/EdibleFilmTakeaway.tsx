@@ -125,6 +125,12 @@ export const EdibleFilmTakeaway: React.FC<EdibleFilmTakeawayProps> = ({
       return;
     }
 
+    // A pinch already used to activate a UI button must not also pick up the film.
+    if (activeHand.isPinchOnButton) {
+      prevHandPinchingRef.current = activeHand.isPinching;
+      return;
+    }
+
     const isPinching = activeHand.isPinching;
     const handX = activeHand.indexTip.x;
     const handY = activeHand.indexTip.y;

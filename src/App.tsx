@@ -8,6 +8,7 @@ import { ExperienceState, HandData } from './types';
 import { BedroomEnvironment } from './components/BedroomEnvironment';
 import { WorkTabsLayer } from './components/WorkTabsLayer';
 import { OrbCanvas } from './components/OrbCanvas';
+import { HandFeedbackOverlay } from './components/HandFeedbackOverlay';
 import { EncouragementDisplay } from './components/EncouragementDisplay';
 import { EdibleFilmTakeaway } from './components/EdibleFilmTakeaway';
 import { ControlsOverlay } from './components/ControlsOverlay';
@@ -191,10 +192,48 @@ export default function App() {
     setLastFlick({ vx, vy, speed, timestamp: Date.now() });
   }, []);
 
+  // Convert the mirrored webcam pinch point to the visible object-cover viewport,
+  // then activate the interface button under the user's pinched fingers.
+  const handlePinchStart = useCallback((x: number, y: number) => {
+    const video = videoRef.current;
+    const videoWidth = video?.videoWidth || 640;
+    const videoHeight = video?.videoHeight || 480;
+    const videoAspect = videoWidth / videoHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const viewportAspect = viewportWidth / viewportHeight;
+
+    let screenX = x * viewportWidth;
+    let screenY = y * viewportHeight;
+
+    if (videoAspect > viewportAspect) {
+      const renderedWidth = viewportHeight * videoAspect;
+      screenX = x * renderedWidth - (renderedWidth - viewportWidth) / 2;
+    } else {
+      const renderedHeight = viewportWidth / videoAspect;
+      screenY = y * renderedHeight - (renderedHeight - viewportHeight) / 2;
+    }
+
+    const hitElement = document.elementFromPoint(screenX, screenY);
+    const button = hitElement?.closest<HTMLElement>(
+      'button, [role="button"], input[type="button"], input[type="submit"]'
+    );
+
+    if (!button) return false;
+
+    const isDisabled = button.matches(':disabled') || button.getAttribute('aria-disabled') === 'true';
+    if (!isDisabled) {
+      button.click();
+    }
+
+    return true;
+  }, []);
+
   // Hand Tracker callbacks
   useEffect(() => {
     const tracker = new HandTracker({
       onHandsTogether: handleHandsTogether,
+      onPinchStart: handlePinchStart,
       onClap: handleHandsTogether,
       onGrabStart: (x, y) => {
         setHandInteractionPoint({ x, y });
@@ -236,7 +275,7 @@ export default function App() {
     return () => {
       tracker.stop();
     };
-  }, [handleHandsTogether, handleFlick, handleSwipeReturn]);
+  }, [handleHandsTogether, handleFlick, handleSwipeReturn, handlePinchStart]);
 
   const simulatePickupFromDock = useCallback(() => {
     initAudio();
@@ -392,6 +431,9 @@ export default function App() {
         flickAction={lastFlick}
         encouragementText={encouragementText}
       />
+
+      {/* Hand feedback stays above floating tabs without blocking pointer input. */}
+      <HandFeedbackOverlay hands={hands} />
 
       {/* Layer 5: Stage 2 Personalised Accomplishments & Golden Encouragement Handwriting */}
       <EncouragementDisplay

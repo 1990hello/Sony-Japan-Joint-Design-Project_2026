@@ -57,6 +57,7 @@ export interface HandData {
   indexTip: { x: number; y: number };
   thumbTip: { x: number; y: number };
   isPinching: boolean;
+  isPinchOnButton?: boolean;
   isGrabbing: boolean;
   isOpenPalm?: boolean;
   openPalmConfidence?: number;
