@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ExperienceState, HandData } from '../types';
 import { soundSynthesizer } from '../services/soundSynthesizer';
 import { FirewoodCradleManager, renderFirewoodGlassOrb } from './FirewoodCradleRenderer';
+import { ThreeOrbLayer, ThreeOrbFrame } from './ThreeOrbLayer';
 
 interface OrbCanvasProps {
   state: ExperienceState;
@@ -85,6 +86,16 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   encouragementText,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const orbFrameRef = useRef<ThreeOrbFrame>({
+    x: 0,
+    y: 0,
+    radius: 95,
+    time: 0,
+    visible: false,
+    isDocked: false,
+    rendererReady: false,
+  });
 
   // Position, Velocity, and Radius
   const orbPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -240,8 +251,13 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       if (!canvasRef.current) return;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      canvasRef.current.width = w * window.devicePixelRatio;
-      canvasRef.current.height = h * window.devicePixelRatio;
+      const pixelRatio = window.devicePixelRatio || 1;
+      canvasRef.current.width = w * pixelRatio;
+      canvasRef.current.height = h * pixelRatio;
+      if (foregroundCanvasRef.current) {
+        foregroundCanvasRef.current.width = w * pixelRatio;
+        foregroundCanvasRef.current.height = h * pixelRatio;
+      }
 
       if (stateRef.current === 'IDLE' && !dockFlightRef.current) {
         orbPosRef.current = { x: w * dockX, y: h * dockY };
@@ -877,9 +893,11 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
 
     const render = () => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      const foregroundCanvas = foregroundCanvasRef.current;
+      if (!canvas || !foregroundCanvas) return;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      const foregroundCtx = foregroundCanvas.getContext('2d');
+      if (!ctx || !foregroundCtx) return;
 
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.width / dpr;
@@ -888,6 +906,10 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, w, h);
+
+      foregroundCtx.save();
+      foregroundCtx.scale(dpr, dpr);
+      foregroundCtx.clearRect(0, 0, w, h);
 
       animTimeRef.current += 0.016;
       const t = animTimeRef.current;
@@ -1138,6 +1160,21 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         currentState === 'ORB_DOCKING' ||
         currentState === 'ORB_RETURNING_TO_DOCK';
 
+      // Share the existing 2D physics position with the independent Three.js renderer.
+      // The state machine and all gesture/physics calculations remain in this component.
+      orbFrameRef.current.x = currentOrbX;
+      orbFrameRef.current.y = currentOrbY;
+      orbFrameRef.current.radius = currentRadius;
+      orbFrameRef.current.time = t;
+      orbFrameRef.current.isDocked = isDocked;
+      orbFrameRef.current.visible = ![
+        'WORK_TABS',
+        'INITIAL_WORK_TABS',
+        'SWIPES_TO_RELEASE',
+        'ORB_FORMATION',
+        'ORB_FORMING',
+      ].includes(currentState);
+
       // Update Firewood Cradle particles (sparks, smoke)
       cradleManagerRef.current.update(dockPx.x, dockPx.y, dt, isDocked, t);
 
@@ -1159,18 +1196,20 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
           onStateChange('ABSORB_TRANSFER', 'Orb formed above dock (animation complete); start absorbing tabs');
         }
       } else {
-        // Translucent glass orb with intricate flowing golden-white energy lines
-        // and warm campfire under-illumination matching the reference image!
-        renderFirewoodGlassOrb(
-          ctx,
-          currentOrbX,
-          currentOrbY,
-          currentRadius,
-          t,
-          isDocked || (currentState === 'ORB_DOCKING' && distToDock < 90),
-          filamentsRef.current,
-          particlesRef.current
-        );
+        // Keep the established Canvas orb as a graceful fallback until WebGL is ready.
+        // Once Three.js initializes, the volumetric glass orb takes over this visual layer.
+        if (!orbFrameRef.current.rendererReady) {
+          renderFirewoodGlassOrb(
+            ctx,
+            currentOrbX,
+            currentOrbY,
+            currentRadius,
+            t,
+            isDocked || (currentState === 'ORB_DOCKING' && distToDock < 90),
+            filamentsRef.current,
+            particlesRef.current
+          );
+        }
 
         // In TAB_TRANSFER: render contracting outer energy envelope as tabs move inward
         if (currentState === 'TAB_TRANSFER') {
@@ -1198,13 +1237,11 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         }
       }
 
-      // --- RENDER FIREWOOD CRADLE FRONT LAYER ---
-      // Front charred logs cradling the lower hemisphere of the orb, foreground flames & sparks
-      cradleManagerRef.current.renderFront(ctx, dockPx.x, dockPx.y, isDocked, isDockHovered, t);
+      // Foreground layer: keep the cradle's front logs and hand feedback in front of the 3D orb.
+      cradleManagerRef.current.renderFront(foregroundCtx, dockPx.x, dockPx.y, isDocked, isDockHovered, t);
+      renderHandFeedback(foregroundCtx, hands, w, h);
 
-      // --- RENDER HAND TRACKING AR OVERLAY ---
-      renderHandFeedback(ctx, hands, w, h);
-
+      foregroundCtx.restore();
       ctx.restore();
       animId = requestAnimationFrame(render);
     };
@@ -1644,9 +1681,10 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      onMouseDown={handleMouseDown}
+    <div className="absolute inset-0 z-20 pointer-events-none">
+      <canvas
+        ref={canvasRef}
+        onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onTouchStart={(e) => {
@@ -1658,11 +1696,18 @@ export const OrbCanvas: React.FC<OrbCanvasProps> = ({
         handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY } as any);
       }}
       onTouchEnd={handleMouseUp}
-      className={`absolute inset-0 w-full h-full z-20 ${
-        state === 'ORB_RELEASED' || state === 'ORB_HELD' || state === 'ORB_GRABBED' || state === 'ORB_IN_FLIGHT' || state === 'IDLE'
-          ? 'cursor-grab active:cursor-grabbing'
-          : 'cursor-default'
-      }`}
-    />
+        className={`absolute inset-0 w-full h-full z-10 pointer-events-auto ${
+          state === 'ORB_RELEASED' || state === 'ORB_HELD' || state === 'ORB_GRABBED' || state === 'ORB_IN_FLIGHT' || state === 'IDLE'
+            ? 'cursor-grab active:cursor-grabbing'
+            : 'cursor-default'
+        }`}
+      />
+      <ThreeOrbLayer frameRef={orbFrameRef} />
+      <canvas
+        ref={foregroundCanvasRef}
+        className="absolute inset-0 w-full h-full z-30 pointer-events-none"
+        aria-hidden="true"
+      />
+    </div>
   );
 };
