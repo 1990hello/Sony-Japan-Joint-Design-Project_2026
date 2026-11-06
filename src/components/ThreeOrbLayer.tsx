@@ -153,6 +153,54 @@ export const ThreeOrbLayer: React.FC<ThreeOrbLayerProps> = ({ frameRef }) => {
       );
       orbGroup.add(glassShell);
 
+      // A Fresnel layer makes the glass volume read clearly against both dark
+      // room scenes and bright webcam backgrounds, without changing its silhouette.
+      const depthShell = new THREE.Mesh(
+        new THREE.SphereGeometry(1.012, 64, 48),
+        new THREE.ShaderMaterial({
+          vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            varying vec3 vLocalPosition;
+
+            void main() {
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              vNormal = normalize(normalMatrix * normal);
+              vViewPosition = normalize(-mvPosition.xyz);
+              vLocalPosition = position;
+              gl_Position = projectionMatrix * mvPosition;
+            }
+          `,
+          fragmentShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            varying vec3 vLocalPosition;
+
+            void main() {
+              vec3 normal = normalize(vNormal);
+              vec3 viewDirection = normalize(vViewPosition);
+              float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 2.2);
+              vec3 keyDirection = normalize(vec3(-0.42, 0.62, 0.68));
+              float highlight = pow(max(dot(normal, keyDirection), 0.0), 22.0);
+              float lowerGlow = smoothstep(-0.95, -0.2, vLocalPosition.y) * 0.08;
+
+              vec3 warmGold = vec3(1.0, 0.78, 0.52);
+              vec3 coolBlue = vec3(0.58, 0.76, 1.0);
+              vec3 rimColor = mix(coolBlue, warmGold, smoothstep(-0.35, 0.5, vLocalPosition.y));
+              float alpha = clamp(0.035 + fresnel * 0.38 + highlight * 0.24 + lowerGlow, 0.0, 0.62);
+
+              gl_FragColor = vec4(rimColor * (0.32 + fresnel * 0.78 + highlight * 0.65), alpha);
+            }
+          `,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.FrontSide,
+        })
+      );
+      depthShell.renderOrder = 2;
+      orbGroup.add(depthShell);
+
       const rim = new THREE.Mesh(
         new THREE.SphereGeometry(1.008, 64, 48),
         new THREE.MeshBasicMaterial({
@@ -210,6 +258,30 @@ export const ThreeOrbLayer: React.FC<ThreeOrbLayerProps> = ({ frameRef }) => {
       equator.rotation.x = Math.PI * 0.5;
       filamentGroup.add(equator);
 
+      // Tilted orbital bands create visible near/far parallax as the orb turns.
+      const depthRingGroup = new THREE.Group();
+      orbGroup.add(depthRingGroup);
+      const depthRings = [
+        { radius: 0.76, tube: 0.014, color: 0xffe0ad, opacity: 0.72, rotation: [1.04, 0.25, 0.18] },
+        { radius: 0.88, tube: 0.010, color: 0xbddcff, opacity: 0.5, rotation: [0.52, 1.05, -0.34] },
+        { radius: 0.58, tube: 0.009, color: 0xffc97f, opacity: 0.58, rotation: [1.35, -0.48, 0.62] },
+      ];
+      depthRings.forEach(({ radius, tube, color, opacity, rotation }) => {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, tube, 8, 160),
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          })
+        );
+        ring.rotation.set(rotation[0], rotation[1], rotation[2]);
+        ring.renderOrder = 3;
+        depthRingGroup.add(ring);
+      });
+
       // Fine points of light drift inside the sphere.
       const particlePositions = new Float32Array(180 * 3);
       for (let index = 0; index < 180; index++) {
@@ -257,6 +329,8 @@ export const ThreeOrbLayer: React.FC<ThreeOrbLayerProps> = ({ frameRef }) => {
           orbGroup.rotation.x = Math.sin(frame.time * 0.35) * 0.055;
           filamentGroup.rotation.z = frame.time * 0.11;
           filamentGroup.rotation.y = Math.sin(frame.time * 0.22) * 0.16;
+          depthRingGroup.rotation.y = frame.time * 0.16;
+          depthRingGroup.rotation.x = Math.sin(frame.time * 0.18) * 0.12;
           particles.rotation.y = -frame.time * 0.075;
           particles.rotation.x = Math.sin(frame.time * 0.18) * 0.1;
           core.scale.setScalar(1 + Math.sin(frame.time * 2.1) * 0.035);
